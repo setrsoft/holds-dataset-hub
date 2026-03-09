@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import io
 import json
 import logging
@@ -86,7 +87,6 @@ def bootstrap_global_index(repo_id: str) -> dict[str, Any]:
         "allowed_references": {
             "manufacturers": [],
             "hold_types": [],
-            "colors": [],
         },
         "stats": {
             "total_holds": 0,
@@ -202,7 +202,6 @@ def ensure_allowed_references(global_index: dict[str, Any]) -> dict[str, set[str
 
     manufacturers = allowed_references.setdefault("manufacturers", [])
     hold_types = allowed_references.setdefault("hold_types", [])
-    allowed_references.setdefault("colors", [])
 
     if not isinstance(manufacturers, list) or not isinstance(hold_types, list):
         raise RuntimeError(
@@ -412,6 +411,27 @@ def update_global_index(
     return next_index
 
 
+def build_comparison_payload(global_index: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "holds": global_index.get("holds", []),
+        "stats": global_index.get("stats", {}),
+        "needs_attention": global_index.get("needs_attention", {}),
+    }
+
+
+def compute_payload_hash(payload: dict[str, Any]) -> str:
+    canonical_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def has_meaningful_changes(current_index: dict[str, Any], updated_index: dict[str, Any]) -> bool:
+    current_hash = compute_payload_hash(build_comparison_payload(current_index))
+    updated_hash = compute_payload_hash(build_comparison_payload(updated_index))
+    logger.debug("Current index comparison hash: %s", current_hash)
+    logger.debug("Updated index comparison hash: %s", updated_hash)
+    return current_hash != updated_hash
+
+
 def upload_global_index(api: HfApi, repo_id: str, token: str, payload: dict[str, Any]) -> None:
     serialized = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     api.upload_file(
@@ -462,6 +482,10 @@ def main() -> int:
         )
 
         updated_index = update_global_index(current_index, holds, needs_attention)
+        if not has_meaningful_changes(current_index, updated_index):
+            logger.info("Aucun changement détecté, commit annulé pour préserver l'historique.")
+            return 0
+
         upload_global_index(api, args.repo_id, args.token, updated_index)
     except Exception as exc:
         logger.exception("Global index update failed: %s", exc)
