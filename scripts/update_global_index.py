@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import io
 import json
 import logging
@@ -76,7 +77,34 @@ def configure_logging(verbose: bool) -> None:
     logging.Formatter.converter = time.gmtime  # type: ignore[attr-defined]
 
 
-def load_json_file(repo_id: str, path_in_repo: str, token: str, revision: str | None) -> Any:
+def bootstrap_global_index(repo_id: str) -> dict[str, Any]:
+    logger.warning(
+        "Remote '%s' is empty. Bootstrapping a new global index with empty allowed references.",
+        GLOBAL_INDEX_PATH,
+    )
+    return {
+        "project": repo_id.split("/")[-1],
+        "allowed_references": {
+            "manufacturers": [],
+            "hold_types": [],
+        },
+        "stats": {
+            "total_holds": 0,
+            "to_identify": 0,
+        },
+        "needs_attention": {},
+        "holds": [],
+    }
+
+
+def load_json_file(
+    repo_id: str,
+    path_in_repo: str,
+    token: str,
+    revision: str | None,
+    *,
+    allow_empty: bool = False,
+) -> Any:
     try:
         local_path = hf_hub_download(
             repo_id=repo_id,
@@ -90,11 +118,21 @@ def load_json_file(repo_id: str, path_in_repo: str, token: str, revision: str | 
 
     try:
         with open(local_path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+            raw_content = handle.read()
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"'{path_in_repo}' is not valid JSON: {exc}") from exc
     except OSError as exc:
         raise RuntimeError(f"Unable to read '{path_in_repo}': {exc}") from exc
+
+    if not raw_content.strip():
+        if allow_empty:
+            return bootstrap_global_index(repo_id)
+        raise RuntimeError(f"'{path_in_repo}' is empty and cannot be parsed as JSON.")
+
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"'{path_in_repo}' is not valid JSON: {exc}") from exc
 
 
 def list_dataset_files(
@@ -162,8 +200,8 @@ def ensure_allowed_references(global_index: dict[str, Any]) -> dict[str, set[str
     if not isinstance(allowed_references, dict):
         raise RuntimeError("global_index.json is missing the 'allowed_references' section.")
 
-    manufacturers = allowed_references.get("manufacturers")
-    hold_types = allowed_references.get("hold_types")
+    manufacturers = allowed_references.setdefault("manufacturers", [])
+    hold_types = allowed_references.setdefault("hold_types", [])
 
     if not isinstance(manufacturers, list) or not isinstance(hold_types, list):
         raise RuntimeError(
@@ -373,6 +411,27 @@ def update_global_index(
     return next_index
 
 
+def build_comparison_payload(global_index: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "holds": global_index.get("holds", []),
+        "stats": global_index.get("stats", {}),
+        "needs_attention": global_index.get("needs_attention", {}),
+    }
+
+
+def compute_payload_hash(payload: dict[str, Any]) -> str:
+    canonical_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def has_meaningful_changes(current_index: dict[str, Any], updated_index: dict[str, Any]) -> bool:
+    current_hash = compute_payload_hash(build_comparison_payload(current_index))
+    updated_hash = compute_payload_hash(build_comparison_payload(updated_index))
+    logger.debug("Current index comparison hash: %s", current_hash)
+    logger.debug("Updated index comparison hash: %s", updated_hash)
+    return current_hash != updated_hash
+
+
 def upload_global_index(api: HfApi, repo_id: str, token: str, payload: dict[str, Any]) -> None:
     serialized = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     api.upload_file(
@@ -397,7 +456,13 @@ def main() -> int:
     api = HfApi(token=args.token)
 
     try:
-        current_index = load_json_file(args.repo_id, GLOBAL_INDEX_PATH, args.token, args.revision)
+        current_index = load_json_file(
+            args.repo_id,
+            GLOBAL_INDEX_PATH,
+            args.token,
+            args.revision,
+            allow_empty=True,
+        )
         if not isinstance(current_index, dict):
             raise RuntimeError("global_index.json must contain a top-level JSON object.")
 
@@ -417,6 +482,10 @@ def main() -> int:
         )
 
         updated_index = update_global_index(current_index, holds, needs_attention)
+        if not has_meaningful_changes(current_index, updated_index):
+            logger.info("Aucun changement détecté, commit annulé pour préserver l'historique.")
+            return 0
+
         upload_global_index(api, args.repo_id, args.token, updated_index)
     except Exception as exc:
         logger.exception("Global index update failed: %s", exc)
