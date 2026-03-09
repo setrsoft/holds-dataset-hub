@@ -76,7 +76,35 @@ def configure_logging(verbose: bool) -> None:
     logging.Formatter.converter = time.gmtime  # type: ignore[attr-defined]
 
 
-def load_json_file(repo_id: str, path_in_repo: str, token: str, revision: str | None) -> Any:
+def bootstrap_global_index(repo_id: str) -> dict[str, Any]:
+    logger.warning(
+        "Remote '%s' is empty. Bootstrapping a new global index with empty allowed references.",
+        GLOBAL_INDEX_PATH,
+    )
+    return {
+        "project": repo_id.split("/")[-1],
+        "allowed_references": {
+            "manufacturers": [],
+            "hold_types": [],
+            "colors": [],
+        },
+        "stats": {
+            "total_holds": 0,
+            "to_identify": 0,
+        },
+        "needs_attention": {},
+        "holds": [],
+    }
+
+
+def load_json_file(
+    repo_id: str,
+    path_in_repo: str,
+    token: str,
+    revision: str | None,
+    *,
+    allow_empty: bool = False,
+) -> Any:
     try:
         local_path = hf_hub_download(
             repo_id=repo_id,
@@ -90,11 +118,21 @@ def load_json_file(repo_id: str, path_in_repo: str, token: str, revision: str | 
 
     try:
         with open(local_path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+            raw_content = handle.read()
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"'{path_in_repo}' is not valid JSON: {exc}") from exc
     except OSError as exc:
         raise RuntimeError(f"Unable to read '{path_in_repo}': {exc}") from exc
+
+    if not raw_content.strip():
+        if allow_empty:
+            return bootstrap_global_index(repo_id)
+        raise RuntimeError(f"'{path_in_repo}' is empty and cannot be parsed as JSON.")
+
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"'{path_in_repo}' is not valid JSON: {exc}") from exc
 
 
 def list_dataset_files(
@@ -162,8 +200,9 @@ def ensure_allowed_references(global_index: dict[str, Any]) -> dict[str, set[str
     if not isinstance(allowed_references, dict):
         raise RuntimeError("global_index.json is missing the 'allowed_references' section.")
 
-    manufacturers = allowed_references.get("manufacturers")
-    hold_types = allowed_references.get("hold_types")
+    manufacturers = allowed_references.setdefault("manufacturers", [])
+    hold_types = allowed_references.setdefault("hold_types", [])
+    allowed_references.setdefault("colors", [])
 
     if not isinstance(manufacturers, list) or not isinstance(hold_types, list):
         raise RuntimeError(
@@ -397,7 +436,13 @@ def main() -> int:
     api = HfApi(token=args.token)
 
     try:
-        current_index = load_json_file(args.repo_id, GLOBAL_INDEX_PATH, args.token, args.revision)
+        current_index = load_json_file(
+            args.repo_id,
+            GLOBAL_INDEX_PATH,
+            args.token,
+            args.revision,
+            allow_empty=True,
+        )
         if not isinstance(current_index, dict):
             raise RuntimeError("global_index.json must contain a top-level JSON object.")
 
