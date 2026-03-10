@@ -154,4 +154,4 @@ If you use the upload flow:
 
 ## License
 
-No license file is currently defined in this repository.
+MIT license
