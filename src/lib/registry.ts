@@ -14,13 +14,13 @@ import type {
 } from '../types/registry'
 
 export const ATTENTION_BUCKET_LABELS: Record<string, string> = {
-  invalid_hold_type_reference: 'Type invalide',
-  invalid_manufacturer_reference: 'Marque invalide',
-  invalid_metadata: 'Metadata invalide',
-  missing_mesh: 'Mesh manquant',
-  unknown_hold_type: 'Type inconnu',
-  unknown_manufacturer: 'Marque inconnue',
-  unknown_model: 'Modèle inconnu',
+  invalid_hold_type_reference: 'Invalid type reference',
+  invalid_manufacturer_reference: 'Invalid manufacturer reference',
+  invalid_metadata: 'Invalid metadata',
+  missing_mesh: 'Missing mesh',
+  unknown_hold_type: 'Unknown type',
+  unknown_manufacturer: 'Unknown manufacturer',
+  unknown_model: 'Unknown model',
 }
 
 export function normalizeReferenceValue(value: unknown) {
@@ -188,7 +188,7 @@ export function formatUnixTimestamp(value?: number) {
     return 'N/A'
   }
 
-  return new Date(value * 1000).toLocaleString('fr-FR', {
+  return new Date(value * 1000).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })

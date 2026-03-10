@@ -78,7 +78,7 @@ export function HoldCard({ hold, onSelect }: HoldCardProps) {
           ))
         ) : (
           <span className="inline-flex rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            Propre
+            Clean
           </span>
         )}
         {hold.attentionReasons.length > 2 && (
@@ -100,7 +100,7 @@ export function HoldCard({ hold, onSelect }: HoldCardProps) {
           ))}
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Maj: {formatUnixTimestamp(hold.last_update)}
+          Updated: {formatUnixTimestamp(hold.last_update)}
         </p>
       </div>
     </button>

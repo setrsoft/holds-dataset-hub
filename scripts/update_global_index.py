@@ -483,7 +483,7 @@ def main() -> int:
 
         updated_index = update_global_index(current_index, holds, needs_attention)
         if not has_meaningful_changes(current_index, updated_index):
-            logger.info("Aucun changement détecté, commit annulé pour préserver l'historique.")
+            logger.info("No changes detected, commit skipped to preserve history.")
             return 0
 
         upload_global_index(api, args.repo_id, args.token, updated_index)

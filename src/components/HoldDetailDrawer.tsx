@@ -22,14 +22,14 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
       <button
         type="button"
         className="flex-1 cursor-default"
-        aria-label="Fermer le panneau de détail"
+        aria-label="Close detail panel"
         onClick={onClose}
       />
       <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-slate-200/80 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Détail prise
+              Hold detail
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
               {hold.hold_id}
@@ -54,7 +54,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
             ))
           ) : (
             <span className="inline-flex rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              Aucun point bloquant
+              No blocking issues
             </span>
           )}
         </div>
@@ -64,13 +64,13 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
           <DetailItem label="Type" value={hold.type ?? fallbackValue} />
           <DetailItem label="Size" value={hold.size ?? fallbackValue} />
           <DetailItem label="Timezone" value={hold.timezone_offset ?? fallbackValue} />
-          <DetailItem label="Créée le" value={formatUnixTimestamp(hold.created_at)} />
-          <DetailItem label="Mise à jour" value={formatUnixTimestamp(hold.last_update)} />
+          <DetailItem label="Created" value={formatUnixTimestamp(hold.created_at)} />
+          <DetailItem label="Updated" value={formatUnixTimestamp(hold.last_update)} />
         </div>
 
         <section className="mt-6 rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
           <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            Couleurs et labels
+            Colors and labels
           </h3>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -87,7 +87,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               </span>
             ))}
             {(!hold.available_colors || hold.available_colors.length === 0) && (
-              <span className="text-sm text-slate-500 dark:text-slate-400">Aucune couleur</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">No color</span>
             )}
           </div>
 
@@ -101,7 +101,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               </span>
             ))}
             {(!hold.labels || hold.labels.length === 0) && (
-              <span className="text-sm text-slate-500 dark:text-slate-400">Aucun label</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">No labels</span>
             )}
           </div>
         </section>
@@ -124,7 +124,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300/80 px-4 py-3 text-sm font-medium text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
               <FileJson className="h-4 w-4" />
-              Ouvrir metadata
+              Open metadata
             </a>
             <a
               href={hold.links.primaryAssetUrl}
@@ -133,7 +133,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300/80 px-4 py-3 text-sm font-medium text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
               <ExternalLink className="h-4 w-4" />
-              Ouvrir asset
+              Open asset
             </a>
           </div>
         </section>
