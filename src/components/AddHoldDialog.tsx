@@ -87,7 +87,6 @@ export function AddHoldDialog({
     () => ({
       numericId: nextNumericId,
       holdId: nextHoldId,
-      path: `${nextHoldId}/`,
     }),
     [nextHoldId, nextNumericId],
   )
@@ -164,11 +163,11 @@ export function AddHoldDialog({
       })
 
       onUploaded({
-        message:
-          `Hold ${nextHoldId} was uploaded to Hugging Face. ` +
-          (publishAnonymously
-            ? 'It was sent as an anonymous contribution and might take longer to be accepted.'
-            : 'It will appear in the gallery after the next index regeneration.'),
+        message: (
+          `Your contribution was uploaded to Hugging Face in the pending area. ` +
+          `It will be assigned an official ID (e.g. around ${nextHoldId}) and appear in the gallery ` +
+          `after the next index regeneration.`
+        ),
         commitUrl: result.commitUrl,
       })
       onClose()
@@ -188,15 +187,9 @@ export function AddHoldDialog({
       <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-6 py-5 dark:border-slate-800">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Add a hold
-            </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-              New folder {holdPreview.path}
+              New hold
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              The ID is computed automatically to avoid collisions.
-            </p>
           </div>
           <button
             type="button"

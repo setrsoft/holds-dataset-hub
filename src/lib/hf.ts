@@ -123,6 +123,13 @@ export async function uploadHold({
   accessToken,
   hold,
 }: UploadHoldParams): Promise<UploadHoldResult> {
+  const pendingFolderId =
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)) || 'pending'
+
+  const pendingPathPrefix = `pending/${pendingFolderId}`
+
   const metadataBlob = new Blob([`${JSON.stringify(hold, null, 2)}\n`], {
     type: 'application/json',
   })
@@ -170,12 +177,12 @@ export async function uploadHold({
     operations: [
       {
         operation: 'addOrUpdate',
-        path: `${hold.hold_id}/metadata.json`,
+        path: `${pendingPathPrefix}/metadata.json`,
         content: metadataBlob,
       },
       ...hold.uploadFiles.map((file: File) => {
         const sanitized = sanitizeFileName(file.name)
-        const uniquePath = getUniquePath(`${hold.hold_id}/${sanitized}`)
+        const uniquePath = getUniquePath(`${pendingPathPrefix}/${sanitized}`)
         return {
           operation: 'addOrUpdate' as const,
           path: uniquePath,
