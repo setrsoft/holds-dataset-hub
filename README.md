@@ -85,15 +85,30 @@ npm run check
 
 The frontend works without a backend and reads the Hugging Face dataset directly from the browser.
 
-Optional Vite environment variables:
+Configuration is done via Vite environment variables. All are optional and have defaults.
 
-```bash
-VITE_HF_DATASET_REPO_ID=setrsoft/climbing-holds
-VITE_HF_REVISION=main
-VITE_BASE_PATH=/holds-dataset-hub/
-```
+**Local development**
 
-Defaults are already configured for the current dataset and main branch.
+1. Copy the example file: `cp .env.example .env`
+2. Edit `.env` if you need to override the defaults (dataset repo, revision, base path).
+
+If you don’t create a `.env`, the app still runs with built-in defaults.
+
+**Deployed build (e.g. GitHub Pages)**
+
+In your CI (e.g. GitHub Actions), pass the same variables as repository or workflow secrets when running `npm run build`. For example, define `VITE_HF_DATASET_REPO_ID`, `VITE_HF_REVISION`, `VITE_BASE_PATH`, and optionally `VITE_HF_ANONYMOUS_REPO_ID` and `VITE_HF_ANONYMOUS_TOKEN`, in the GitHub repo secrets and inject them into the build step.
+
+**Variables (see `.env.example` for details)**
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `VITE_HF_DATASET_REPO_ID` | Dataset used for the registry and uploads | `setrsoft/climbing-holds` |
+| `VITE_HF_REVISION` | Branch / revision | `main` |
+| `VITE_HF_ANONYMOUS_REPO_ID` | Repo for anonymous contributions (e.g. your private repo) | `eberling1/climbingholds-anonymous-contributions` |
+| `VITE_HF_ANONYMOUS_TOKEN` | Token used to push to the anonymous repo when users choose “Publish anonymously”. If set, users don’t need to enter a token for anonymous uploads. **Included in the frontend bundle.** | (none) |
+| `VITE_BASE_PATH` | App base path when deployed under a subpath | (empty in dev; set e.g. `/holds-dataset-hub/` for GitHub Pages) |
+
+The **normal** upload token is not read from the environment: it is entered in the “Add a hold” dialog or read from `localStorage` (key `settersoft-registry.hf-token`). The optional `VITE_HF_ANONYMOUS_TOKEN` is only used when the user checks “Publish anonymously” and allows sending those contributions to your private repo without requiring their own token.
 
 ## Upload Workflow
 

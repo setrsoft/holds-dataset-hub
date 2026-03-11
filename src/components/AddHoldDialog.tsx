@@ -9,6 +9,7 @@ import {
   uploadHold,
   validateAccessToken,
 } from '../lib/hf'
+import { HF_ANONYMOUS_TOKEN } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 
 import type { NewHoldMetadata } from '../types/registry'
@@ -80,6 +81,9 @@ export function AddHoldDialog({
 
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
   const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
+  const anonymousToken = HF_ANONYMOUS_TOKEN.length > 0 ? HF_ANONYMOUS_TOKEN : null
+  const tokenForUpload =
+    publishAnonymously && anonymousToken ? anonymousToken : activeToken
 
   const holdPreview = useMemo(
     () => ({
@@ -98,7 +102,7 @@ export function AddHoldDialog({
     event.preventDefault()
     setError(null)
 
-    if (!activeToken) {
+    if (!tokenForUpload) {
       setError('A Hugging Face token is required to upload a new hold.')
       return
     }
@@ -127,9 +131,14 @@ export function AddHoldDialog({
     setIsUploading(true)
 
     try {
-      await validateAccessToken(activeToken)
+      await validateAccessToken(tokenForUpload)
 
-      if (!hasStoredToken && rememberToken) {
+      if (
+        tokenForUpload === activeToken &&
+        !hasStoredToken &&
+        rememberToken &&
+        activeToken
+      ) {
         saveAccessToken(activeToken)
         setStoredToken(activeToken)
       }
@@ -156,7 +165,7 @@ export function AddHoldDialog({
       const result = await uploadHold({
         repoId: publishAnonymously ? ANONYMOUS_CONTRIBUTIONS_REPO_ID : repoId,
         revision,
-        accessToken: activeToken,
+        accessToken: tokenForUpload,
         hold: metadata,
         assetFile,
       })

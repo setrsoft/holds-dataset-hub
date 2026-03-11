@@ -1,12 +1,15 @@
 import { commit, whoAmI } from '@huggingface/hub'
 
+import {
+  HF_ANONYMOUS_REPO_ID,
+  HF_DATASET_REPO_ID,
+  HF_REVISION,
+} from './env'
 import type { GlobalIndex, UploadHoldParams, UploadHoldResult } from '../types/registry'
 
-export const DEFAULT_DATASET_REPO_ID =
-  import.meta.env.VITE_HF_DATASET_REPO_ID ?? 'setrsoft/climbing-holds'
-export const ANONYMOUS_CONTRIBUTIONS_REPO_ID =
-  import.meta.env.VITE_HF_ANONYMOUS_REPO_ID ?? 'eberling1/climbingholds-anonymous-contributions'
-export const DEFAULT_REVISION = import.meta.env.VITE_HF_REVISION ?? 'main'
+export const DEFAULT_DATASET_REPO_ID = HF_DATASET_REPO_ID
+export const ANONYMOUS_CONTRIBUTIONS_REPO_ID = HF_ANONYMOUS_REPO_ID
+export const DEFAULT_REVISION = HF_REVISION
 export const HF_TOKEN_STORAGE_KEY = 'settersoft-registry.hf-token'
 
 const HUGGING_FACE_BASE_URL = 'https://huggingface.co'
