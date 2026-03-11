@@ -15,4 +15,4 @@ jobs:
             -H "X-Webhook-Secret: ${{ secrets.WEBHOOK_SECRET }}" \
             -H "Content-Type: application/json" \
             -d '{"event": {"action": "ping"}, "repo": {"name": "setrsoft/climbing-holds"}}' \
-            https://setrsoft-climbing-holds-dataset-indexer.hf.space/webhooks/indexation
+            https://setrsoft-climbing-holds-dataset-indexer.hf.space/webhooks/index
