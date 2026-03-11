@@ -74,7 +74,7 @@ export function Dashboard() {
 
   const datasetUrl = buildDatasetTreeUrl(repoId, revision)
   const lastUpdated = data?.raw.last_updated
-    ? new Date(data.raw.last_updated).toLocaleString('fr-FR', {
+    ? new Date(data.raw.last_updated).toLocaleString('en-US', {
         dateStyle: 'medium',
         timeStyle: 'short',
       })
@@ -90,12 +90,11 @@ export function Dashboard() {
                 SetterSoft Registry
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Dashboard technique pour le dataset de prises d&apos;escalade
+                Technical dashboard for the climbing holds dataset
               </h1>
               <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-                Explore le `global_index.json`, filtre les prises, inspecte les
-                métadonnées et contribue directement au dataset Hugging Face
-                `setrsoft/climbing-holds`.
+                Explore `global_index.json`, filter holds, inspect metadata, and
+                contribute directly to the Hugging Face dataset `setrsoft/climbing-holds`.
               </p>
             </div>
 
@@ -110,7 +109,7 @@ export function Dashboard() {
                 className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
               >
                 <RefreshCw className="h-4 w-4" />
-                Rafraîchir
+                Refresh
               </button>
               <button
                 type="button"
@@ -119,7 +118,7 @@ export function Dashboard() {
                 className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400"
               >
                 <Plus className="h-4 w-4" />
-                Ajouter une prise
+                Add a hold
               </button>
             </div>
           </div>
@@ -133,7 +132,7 @@ export function Dashboard() {
               Revision: {revision}
             </span>
             <span className="rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-              Index mis à jour: {lastUpdated}
+              Index updated: {lastUpdated}
             </span>
             <a
               href={datasetUrl}
@@ -142,7 +141,7 @@ export function Dashboard() {
               className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1.5 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
               <ExternalLink className="h-4 w-4" />
-              Ouvrir le dataset
+              Open dataset
             </a>
           </div>
         </header>
@@ -158,7 +157,7 @@ export function Dashboard() {
                 className="mt-2 inline-flex items-center gap-2 font-medium underline"
               >
                 <ExternalLink className="h-4 w-4" />
-                Ouvrir le commit Hugging Face
+                Open Hugging Face commit
               </a>
             )}
           </section>
@@ -184,20 +183,20 @@ export function Dashboard() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-                        Galerie des prises
+                        Holds gallery
                       </h2>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {filteredHolds.length} / {data.holds.length} prises affichées
+                        {filteredHolds.length} / {data.holds.length} holds displayed
                       </p>
                     </div>
                     <div className="rounded-full border border-slate-300/80 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                      Prochain ID réservé: {data.nextHoldId}
+                      Next reserved ID: {data.nextHoldId}
                     </div>
                   </div>
 
                   {filteredHolds.length === 0 ? (
                     <div className="mt-8 rounded-3xl border border-dashed border-slate-300/80 px-6 py-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                      Aucun résultat avec les filtres courants.
+                      No results with current filters.
                     </div>
                   ) : (
                     <div className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -243,7 +242,7 @@ function LoadingState() {
       <div className="text-center">
         <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-sky-500" />
         <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-          Chargement de l&apos;index Hugging Face...
+          Loading Hugging Face index...
         </p>
       </div>
     </section>
@@ -258,14 +257,14 @@ interface ErrorStateProps {
 function ErrorState({ error, onRetry }: ErrorStateProps) {
   return (
     <section className="rounded-[2rem] border border-rose-400/30 bg-rose-500/10 p-8 text-rose-900 dark:text-rose-300">
-      <h2 className="text-lg font-semibold">Impossible de charger la registry</h2>
+      <h2 className="text-lg font-semibold">Unable to load registry</h2>
       <p className="mt-2 text-sm">{error}</p>
       <button
         type="button"
         onClick={onRetry}
         className="mt-4 rounded-full border border-rose-500/40 px-4 py-2 text-sm font-medium"
       >
-        Réessayer
+        Retry
       </button>
     </section>
   )

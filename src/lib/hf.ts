@@ -46,7 +46,9 @@ export async function fetchGlobalIndex(
   })
 
   if (!response.ok) {
-    throw new Error(`Impossible de charger l'index (${response.status} ${response.statusText}).`)
+    throw new Error(
+      `Unable to load index (${response.status} ${response.statusText}).`,
+    )
   }
 
   return (await response.json()) as GlobalIndex

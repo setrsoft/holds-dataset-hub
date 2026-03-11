@@ -9,7 +9,7 @@ interface StatsCardsProps {
 const cards = [
   {
     key: 'total',
-    label: 'Total des prises',
+    label: 'Total holds',
     accent:
       'from-sky-500/20 to-cyan-500/10 text-sky-700 dark:text-sky-300',
     icon: Package,
@@ -25,7 +25,7 @@ const cards = [
   },
   {
     key: 'clean',
-    label: 'Prises propres',
+    label: 'Clean holds',
     accent:
       'from-emerald-500/20 to-teal-500/10 text-emerald-700 dark:text-emerald-300',
     icon: ShieldCheck,

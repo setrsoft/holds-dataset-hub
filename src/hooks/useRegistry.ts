@@ -34,7 +34,7 @@ export function useRegistry(options: UseRegistryOptions = {}) {
         const message =
           unknownError instanceof Error
             ? unknownError.message
-            : "Une erreur inconnue est survenue lors du chargement de l'index."
+            : 'An unknown error occurred while loading the index.'
 
         setError(message)
       } finally {

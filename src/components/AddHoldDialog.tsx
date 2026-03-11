@@ -96,28 +96,28 @@ export function AddHoldDialog({
     setError(null)
 
     if (!activeToken) {
-      setError('Un token Hugging Face est requis pour uploader une nouvelle prise.')
+      setError('A Hugging Face token is required to upload a new hold.')
       return
     }
 
     if (!idConfirmed) {
-      setError("Confirme d'abord l'ID calculé avant l'upload.")
+      setError("Confirm the computed ID before uploading.")
       return
     }
 
     if (!manufacturer.trim() || !model.trim() || !holdType.trim() || !size.trim()) {
-      setError('Manufacturer, model, type et size sont obligatoires.')
+      setError('Manufacturer, model, type, and size are required.')
       return
     }
 
     if (!assetFile) {
-      setError('Ajoute un fichier `.blend` ou `.glb` avant de continuer.')
+      setError('Add a `.blend` or `.glb` file before continuing.')
       return
     }
 
     const lowerName = assetFile.name.toLowerCase()
     if (!lowerName.endsWith('.blend') && !lowerName.endsWith('.glb')) {
-      setError("Le fichier principal doit être au format `.blend` ou `.glb`.")
+      setError('The primary file must be a `.blend` or `.glb` file.')
       return
     }
 
@@ -160,8 +160,8 @@ export function AddHoldDialog({
 
       onUploaded({
         message:
-          `La prise ${nextHoldId} a été envoyée sur Hugging Face. ` +
-          "Elle apparaîtra dans la galerie après la prochaine régénération de l'index.",
+          `Hold ${nextHoldId} was uploaded to Hugging Face. ` +
+          'It will appear in the gallery after the next index regeneration.',
         commitUrl: result.commitUrl,
       })
       onClose()
@@ -169,7 +169,7 @@ export function AddHoldDialog({
       setError(
         unknownError instanceof Error
           ? unknownError.message
-          : "L'upload a échoué pour une raison inconnue.",
+          : 'Upload failed for an unknown reason.',
       )
     } finally {
       setIsUploading(false)
@@ -182,13 +182,13 @@ export function AddHoldDialog({
         <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-6 py-5 dark:border-slate-800">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Ajouter une prise
+              Add a hold
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-              Nouveau dossier {holdPreview.path}
+              New folder {holdPreview.path}
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              L’ID est calculé automatiquement pour éviter les collisions.
+              The ID is computed automatically to avoid collisions.
             </p>
           </div>
           <button
@@ -210,21 +210,21 @@ export function AddHoldDialog({
 
                 <div className="mt-4 space-y-4">
                   <div className="rounded-2xl bg-slate-100/80 p-4 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                    Repo cible: <strong>{repoId}</strong>
+                    Target repo: <strong>{repoId}</strong>
                     <br />
-                    Branche: <strong>{revision}</strong>
+                    Branch: <strong>{revision}</strong>
                   </div>
 
                   {hasStoredToken ? (
                     <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                      Token Hugging Face déjà enregistré localement.
+                      Hugging Face token is already saved locally.
                       <div className="mt-3 flex flex-wrap gap-3">
                         <button
                           type="button"
                           onClick={() => setReplaceStoredToken(true)}
                           className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
                         >
-                          Remplacer
+                          Replace
                         </button>
                         <button
                           type="button"
@@ -236,14 +236,14 @@ export function AddHoldDialog({
                           className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          Effacer le token local
+                          Delete local token
                         </button>
                       </div>
                     </div>
                   ) : (
                     <label className="block">
                       <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Token Hugging Face
+                        Hugging Face token
                       </span>
                       <input
                         type="password"
@@ -259,7 +259,7 @@ export function AddHoldDialog({
                           onChange={(event) => setRememberToken(event.target.checked)}
                           className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                         />
-                        Enregistrer ce token dans le localStorage
+                        Save this token in localStorage
                       </label>
                     </label>
                   )}
@@ -268,7 +268,7 @@ export function AddHoldDialog({
 
               <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Métadonnées
+                  Metadata
                 </h3>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -293,7 +293,7 @@ export function AddHoldDialog({
                   <Field label="Size" value={size} onChange={setSize} placeholder="XL" />
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Couleur du scan
+                      Scan color
                     </span>
                     <input
                       type="color"
@@ -303,7 +303,7 @@ export function AddHoldDialog({
                     />
                   </label>
                   <Field
-                    label="Couleurs disponibles"
+                    label="Available colors"
                     value={availableColors}
                     onChange={setAvailableColors}
                     placeholder="#FF3200, #2962A7"
@@ -325,11 +325,11 @@ export function AddHoldDialog({
 
               <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Fichier 3D
+                  3D file
                 </h3>
                 <label className="mt-4 block">
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Asset principal
+                    Primary asset
                   </span>
                   <input
                     type="file"
@@ -341,8 +341,8 @@ export function AddHoldDialog({
                   />
                 </label>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Le commit Hugging Face gérera automatiquement l’upload des gros fichiers
-                  et le passage en LFS si nécessaire.
+                  The Hugging Face commit will automatically handle large file uploads
+                  and switching to LFS if needed.
                 </p>
               </section>
             </div>
@@ -350,12 +350,12 @@ export function AddHoldDialog({
             <div className="space-y-6">
               <section className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-900/60">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  ID réservé
+                  Reserved ID
                 </h3>
                 <div className="mt-4 space-y-3">
                   <ReadOnlyField label="Numeric ID" value={String(holdPreview.numericId)} />
                   <ReadOnlyField label="hold_id" value={holdPreview.holdId} />
-                  <ReadOnlyField label="Dossier" value={holdPreview.path} />
+                  <ReadOnlyField label="Folder" value={holdPreview.path} />
                 </div>
                 <button
                   type="button"
@@ -367,16 +367,16 @@ export function AddHoldDialog({
                   }`}
                 >
                   {idConfirmed
-                    ? `ID ${holdPreview.holdId} confirmé`
-                    : `Confirmer l'ID ${holdPreview.holdId}`}
+                    ? `ID ${holdPreview.holdId} confirmed`
+                    : `Confirm ID ${holdPreview.holdId}`}
                 </button>
               </section>
 
               <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
-                <h3 className="font-semibold">Note d’indexation</h3>
+                <h3 className="font-semibold">Indexing note</h3>
                 <p className="mt-2">
-                  L’upload crée les fichiers dans le dataset immédiatement, mais la carte
-                  n’apparaîtra dans la galerie qu’après la prochaine régénération de
+                  Uploading creates the files in the dataset immediately, but the card
+                  will only appear in the gallery after the next regeneration of
                   `global_index.json`.
                 </p>
               </section>
@@ -384,7 +384,7 @@ export function AddHoldDialog({
               {assetFile && (
                 <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Fichier sélectionné
+                    Selected file
                   </h3>
                   <p className="mt-3 text-sm text-slate-900 dark:text-slate-100">
                     {assetFile.name}
@@ -409,7 +409,7 @@ export function AddHoldDialog({
               onClick={onClose}
               className="rounded-full border border-slate-300/80 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:text-slate-950 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
             >
-              Annuler
+              Cancel
             </button>
             <button
               type="submit"
@@ -419,12 +419,12 @@ export function AddHoldDialog({
               {isUploading ? (
                 <>
                   <LoaderCircle className="h-4 w-4 animate-spin" />
-                  Upload en cours...
+                  Uploading...
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4" />
-                  Uploader la prise
+                  Upload hold
                 </>
               )}
             </button>
