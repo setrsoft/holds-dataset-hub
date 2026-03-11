@@ -4,6 +4,8 @@ import type { GlobalIndex, UploadHoldParams, UploadHoldResult } from '../types/r
 
 export const DEFAULT_DATASET_REPO_ID =
   import.meta.env.VITE_HF_DATASET_REPO_ID ?? 'setrsoft/climbing-holds'
+export const ANONYMOUS_CONTRIBUTIONS_REPO_ID =
+  import.meta.env.VITE_HF_ANONYMOUS_REPO_ID ?? 'eberling1/climbingholds-anonymous-contributions'
 export const DEFAULT_REVISION = import.meta.env.VITE_HF_REVISION ?? 'main'
 export const HF_TOKEN_STORAGE_KEY = 'settersoft-registry.hf-token'
 

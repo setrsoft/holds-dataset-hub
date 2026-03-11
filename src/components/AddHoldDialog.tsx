@@ -1,7 +1,8 @@
-import { LoaderCircle, Trash2, Upload, X } from 'lucide-react'
+import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import {
+  ANONYMOUS_CONTRIBUTIONS_REPO_ID,
   clearAccessToken,
   getStoredAccessToken,
   saveAccessToken,
@@ -53,6 +54,7 @@ export function AddHoldDialog({
   const [labels, setLabels] = useState('')
   const [assetFile, setAssetFile] = useState<File | null>(null)
   const [idConfirmed, setIdConfirmed] = useState(false)
+  const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
@@ -73,6 +75,7 @@ export function AddHoldDialog({
     setLabels('')
     setStoredToken(getStoredAccessToken())
     setReplaceStoredToken(false)
+    setPublishAnonymously(false)
   }, [open, nextHoldId])
 
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
@@ -151,7 +154,7 @@ export function AddHoldDialog({
       }
 
       const result = await uploadHold({
-        repoId,
+        repoId: publishAnonymously ? ANONYMOUS_CONTRIBUTIONS_REPO_ID : repoId,
         revision,
         accessToken: activeToken,
         hold: metadata,
@@ -161,7 +164,9 @@ export function AddHoldDialog({
       onUploaded({
         message:
           `Hold ${nextHoldId} was uploaded to Hugging Face. ` +
-          'It will appear in the gallery after the next index regeneration.',
+          (publishAnonymously
+            ? 'It was sent as an anonymous contribution and might take longer to be accepted.'
+            : 'It will appear in the gallery after the next index regeneration.'),
         commitUrl: result.commitUrl,
       })
       onClose()
@@ -209,59 +214,87 @@ export function AddHoldDialog({
                 </h3>
 
                 <div className="mt-4 space-y-4">
-                  <div className="rounded-2xl bg-slate-100/80 p-4 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                    Target repo: <strong>{repoId}</strong>
-                    <br />
-                    Branch: <strong>{revision}</strong>
-                  </div>
-
-                  {hasStoredToken ? (
-                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                      Hugging Face token is already saved locally.
-                      <div className="mt-3 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setReplaceStoredToken(true)}
-                          className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
+                  <label className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={publishAnonymously}
+                      onChange={(event) => setPublishAnonymously(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    Publish anonymously
+                  </label>
+                  {publishAnonymously && (
+                    <div
+                      role="alert"
+                      className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
+                    >
+                      Anonymous contributions might take longer to be integrated.
+                      <p className="mt-2">
+                        Please consider creating{' '}
+                        <a
+                          href="https://huggingface.co/join"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:no-underline"
                         >
-                          Replace
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            clearAccessToken()
-                            setStoredToken('')
-                            setReplaceStoredToken(true)
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete local token
-                        </button>
-                      </div>
+                          a Hugging Face account
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        </a>
+                        .
+                      </p>
                     </div>
-                  ) : (
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Hugging Face token
-                      </span>
-                      <input
-                        type="password"
-                        value={tokenInput}
-                        onChange={(event) => setTokenInput(event.target.value)}
-                        placeholder="hf_..."
-                        className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                      <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={rememberToken}
-                          onChange={(event) => setRememberToken(event.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                        />
-                        Save this token in localStorage
-                      </label>
-                    </label>
+                  )}
+                  {!publishAnonymously && (
+                    <>
+                      {hasStoredToken ? (
+                        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                          Hugging Face token is already saved locally.
+                          <div className="mt-3 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setReplaceStoredToken(true)}
+                              className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
+                            >
+                              Replace
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearAccessToken()
+                                setStoredToken('')
+                                setReplaceStoredToken(true)
+                              }}
+                              className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete local token
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Hugging Face token
+                          </span>
+                          <input
+                            type="text"
+                            value={tokenInput}
+                            onChange={(event) => setTokenInput(event.target.value)}
+                            placeholder="hf_..."
+                            className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                          />
+                          <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={rememberToken}
+                              onChange={(event) => setRememberToken(event.target.checked)}
+                              className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                            />
+                            Save this token in browser
+                          </label>
+                        </label>
+                      )}
+                    </>
                   )}
                 </div>
               </section>

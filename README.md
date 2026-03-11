@@ -1,6 +1,6 @@
-# SetterSoft Registry
+# Climbing Holds Dataset Manager
 
-SetterSoft Registry is a Single Page Application used to explore and contribute to the climbing holds dataset hosted on Hugging Face: [`setrsoft/climbing-holds`](https://huggingface.co/datasets/setrsoft/climbing-holds).
+Climbing Holds Dataset Manager is a Single Page Application used to explore and contribute to the climbing holds dataset hosted on Hugging Face: [`setrsoft/climbing-holds`](https://huggingface.co/datasets/setrsoft/climbing-holds).
 
 The project combines:
 
