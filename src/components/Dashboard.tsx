@@ -17,7 +17,7 @@ import { HoldDetailDrawer } from './HoldDetailDrawer'
 import { StatsCards } from './StatsCards'
 import { ThemeToggle } from './ThemeToggle'
 
-import type { DerivedHold, HoldFilters } from '../types/registry'
+import type { CreationOptions, DerivedHold, HoldFilters } from '../types/registry'
 
 const THEME_STORAGE_KEY = 'settersoft-registry.theme'
 
@@ -53,6 +53,7 @@ export function Dashboard() {
     message: string
     commitUrl?: string
   } | null>(null)
+  const creationOptions: CreationOptions | null = data ? data.creationOptions : null
 
   useEffect(() => {
     const rootElement = document.documentElement
@@ -218,13 +219,14 @@ export function Dashboard() {
 
       <HoldDetailDrawer hold={selectedHold} onClose={() => setSelectedHoldId(null)} />
 
-      {data && (
+      {data && creationOptions && (
         <AddHoldDialog
           open={isAddDialogOpen}
           nextNumericId={data.nextNumericId}
           nextHoldId={data.nextHoldId}
           repoId={repoId}
           revision={revision}
+          creationOptions={creationOptions}
           onClose={() => setIsAddDialogOpen(false)}
           onUploaded={(payload) => {
             setUploadFeedback(payload)

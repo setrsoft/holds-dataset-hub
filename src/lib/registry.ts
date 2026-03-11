@@ -117,6 +117,22 @@ export function buildRegistryView(
       .filter(Boolean),
   )
 
+  const modelSet = new Set(
+    derivedHolds
+      .map((hold) => hold.model ?? '')
+      .filter(Boolean)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  )
+
+  const sizeSet = new Set(
+    derivedHolds
+      .map((hold) => hold.size ?? '')
+      .filter(Boolean)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  )
+
   const nextNumericId = getNextHoldNumericId(index)
 
   return {
@@ -137,6 +153,14 @@ export function buildRegistryView(
         index.stats.to_identify ??
         derivedHolds.filter((hold) => hold.status === 'needs_attention').length,
       cleanHolds: derivedHolds.filter((hold) => hold.status === 'ready').length,
+    },
+    creationOptions: {
+      manufacturers: Array.from(manufacturerSet).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+      holdTypes: Array.from(typeSet).sort((left, right) => left.localeCompare(right)),
+      models: Array.from(modelSet).sort((left, right) => left.localeCompare(right)),
+      sizes: Array.from(sizeSet).sort((left, right) => left.localeCompare(right)),
     },
     nextNumericId,
     nextHoldId: formatHoldId(nextNumericId),

@@ -1,10 +1,6 @@
 import { commit, whoAmI } from '@huggingface/hub'
 
-import {
-  HF_ANONYMOUS_REPO_ID,
-  HF_DATASET_REPO_ID,
-  HF_REVISION,
-} from './env'
+import { HF_ANONYMOUS_REPO_ID, HF_DATASET_REPO_ID, HF_REVISION } from './env'
 import type { GlobalIndex, UploadHoldParams, UploadHoldResult } from '../types/registry'
 
 export const DEFAULT_DATASET_REPO_ID = HF_DATASET_REPO_ID
@@ -14,11 +10,18 @@ export const HF_TOKEN_STORAGE_KEY = 'settersoft-registry.hf-token'
 
 const HUGGING_FACE_BASE_URL = 'https://huggingface.co'
 
-export function buildRawIndexUrl(
+export function buildTrainJsonlUrl(
   repoId: string = DEFAULT_DATASET_REPO_ID,
   revision: string = DEFAULT_REVISION,
 ) {
-  return `${HUGGING_FACE_BASE_URL}/datasets/${repoId}/resolve/${revision}/global_index.json`
+  return `${HUGGING_FACE_BASE_URL}/datasets/${repoId}/resolve/${revision}/train.jsonl`
+}
+
+export function buildMetaGlobalIndexUrl(
+  repoId: string = DEFAULT_DATASET_REPO_ID,
+  revision: string = DEFAULT_REVISION,
+) {
+  return `${HUGGING_FACE_BASE_URL}/datasets/${repoId}/resolve/${revision}/meta/global_index.json`
 }
 
 export function buildDatasetTreeUrl(
@@ -43,20 +46,46 @@ export async function fetchGlobalIndex(
   revision: string = DEFAULT_REVISION,
   signal?: AbortSignal,
 ): Promise<GlobalIndex> {
-  const response = await fetch(buildRawIndexUrl(repoId, revision), {
-    headers: {
-      Accept: 'application/json',
-    },
-    signal,
-  })
+  const [trainResponse, metaResponse] = await Promise.all([
+    fetch(buildTrainJsonlUrl(repoId, revision), {
+      headers: {
+        Accept: 'text/plain',
+      },
+      signal,
+    }),
+    fetch(buildMetaGlobalIndexUrl(repoId, revision), {
+      headers: {
+        Accept: 'application/json',
+      },
+      signal,
+    }),
+  ])
 
-  if (!response.ok) {
+  if (!trainResponse.ok) {
     throw new Error(
-      `Unable to load index (${response.status} ${response.statusText}).`,
+      `Unable to load train.jsonl (${trainResponse.status} ${trainResponse.statusText}).`,
     )
   }
 
-  return (await response.json()) as GlobalIndex
+  if (!metaResponse.ok) {
+    throw new Error(
+      `Unable to load meta/global_index.json (${metaResponse.status} ${metaResponse.statusText}).`,
+    )
+  }
+
+  const trainText = await trainResponse.text()
+  const holds = trainText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line))
+
+  const metaIndex = (await metaResponse.json()) as Omit<GlobalIndex, 'holds'>
+
+  return {
+    ...metaIndex,
+    holds,
+  }
 }
 
 export function getStoredAccessToken() {
@@ -93,15 +122,40 @@ export async function uploadHold({
   revision,
   accessToken,
   hold,
-  assetFile,
 }: UploadHoldParams): Promise<UploadHoldResult> {
-  const normalizedAssetName = assetFile.name.toLowerCase().endsWith('.blend')
-    ? 'hold.blend'
-    : 'hold.glb'
-
   const metadataBlob = new Blob([`${JSON.stringify(hold, null, 2)}\n`], {
     type: 'application/json',
   })
+
+  const usedPaths = new Set<string>()
+
+  function sanitizeFileName(name: string): string {
+    const withoutPath = name.split(/[/\\]/).pop() ?? name
+    return withoutPath.replace(/[^a-zA-Z0-9._-]/g, '_')
+  }
+
+  function getUniquePath(basePath: string): string {
+    if (!usedPaths.has(basePath)) {
+      usedPaths.add(basePath)
+      return basePath
+    }
+
+    const lastDotIndex = basePath.lastIndexOf('.')
+    const base =
+      lastDotIndex === -1 ? basePath : basePath.substring(0, lastDotIndex)
+    const ext = lastDotIndex === -1 ? '' : basePath.substring(lastDotIndex)
+
+    let counter = 2
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const candidate = `${base}-${counter}${ext}`
+      if (!usedPaths.has(candidate)) {
+        usedPaths.add(candidate)
+        return candidate
+      }
+      counter += 1
+    }
+  }
 
   const result = await commit({
     accessToken,
@@ -119,11 +173,15 @@ export async function uploadHold({
         path: `${hold.hold_id}/metadata.json`,
         content: metadataBlob,
       },
-      {
-        operation: 'addOrUpdate',
-        path: `${hold.hold_id}/${normalizedAssetName}`,
-        content: assetFile,
-      },
+      ...hold.uploadFiles.map((file: File) => {
+        const sanitized = sanitizeFileName(file.name)
+        const uniquePath = getUniquePath(`${hold.hold_id}/${sanitized}`)
+        return {
+          operation: 'addOrUpdate' as const,
+          path: uniquePath,
+          content: file,
+        }
+      }),
     ],
   })
 

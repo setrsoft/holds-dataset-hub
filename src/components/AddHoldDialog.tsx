@@ -12,7 +12,7 @@ import {
 import { HF_ANONYMOUS_TOKEN } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 
-import type { NewHoldMetadata } from '../types/registry'
+import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
 interface AddHoldDialogProps {
   open: boolean
@@ -20,6 +20,7 @@ interface AddHoldDialogProps {
   nextHoldId: string
   repoId: string
   revision: string
+  creationOptions: CreationOptions
   onClose: () => void
   onUploaded: (payload: { message: string; commitUrl?: string }) => void
 }
@@ -39,6 +40,7 @@ export function AddHoldDialog({
   nextHoldId,
   repoId,
   revision,
+  creationOptions,
   onClose,
   onUploaded,
 }: AddHoldDialogProps) {
@@ -50,11 +52,9 @@ export function AddHoldDialog({
   const [model, setModel] = useState('')
   const [holdType, setHoldType] = useState('')
   const [size, setSize] = useState('')
-  const [colorOfScan, setColorOfScan] = useState('#FF3200')
-  const [availableColors, setAvailableColors] = useState('#FF3200, #2962A7')
   const [labels, setLabels] = useState('')
-  const [assetFile, setAssetFile] = useState<File | null>(null)
-  const [idConfirmed, setIdConfirmed] = useState(false)
+  const [contributionNote, setContributionNote] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -65,15 +65,13 @@ export function AddHoldDialog({
     }
 
     setError(null)
-    setIdConfirmed(false)
-    setAssetFile(null)
+    setFiles([])
     setManufacturer('')
     setModel('')
     setHoldType('')
     setSize('')
-    setColorOfScan('#FF3200')
-    setAvailableColors('#FF3200, #2962A7')
     setLabels('')
+    setContributionNote('')
     setStoredToken(getStoredAccessToken())
     setReplaceStoredToken(false)
     setPublishAnonymously(false)
@@ -107,24 +105,20 @@ export function AddHoldDialog({
       return
     }
 
-    if (!idConfirmed) {
-      setError("Confirm the computed ID before uploading.")
-      return
-    }
-
     if (!manufacturer.trim() || !model.trim() || !holdType.trim() || !size.trim()) {
       setError('Manufacturer, model, type, and size are required.')
       return
     }
 
-    if (!assetFile) {
-      setError('Add a `.blend` or `.glb` file before continuing.')
+    if (files.length === 0) {
+      setError('Add at least one file before continuing.')
       return
     }
 
-    const lowerName = assetFile.name.toLowerCase()
-    if (!lowerName.endsWith('.blend') && !lowerName.endsWith('.glb')) {
-      setError('The primary file must be a `.blend` or `.glb` file.')
+    const totalSizeBytes = files.reduce((sum, file) => sum + file.size, 0)
+    const maxAnonymousBytes = 5 * 1024 * 1024 * 1024
+    if (publishAnonymously && totalSizeBytes > maxAnonymousBytes) {
+      setError('When publishing anonymously, total file size must be at most 5 GiB.')
       return
     }
 
@@ -144,8 +138,6 @@ export function AddHoldDialog({
       }
 
       const now = new Date()
-      const parsedColors = parseCommaSeparatedValues(availableColors)
-      const finalColors = Array.from(new Set([colorOfScan.toUpperCase(), ...parsedColors]))
 
       const metadata: NewHoldMetadata = {
         id: nextNumericId,
@@ -155,11 +147,13 @@ export function AddHoldDialog({
         timezone_offset: getTimezoneOffsetLabel(now),
         type: holdType.trim().toLowerCase(),
         labels: parseCommaSeparatedValues(labels),
-        color_of_scan: colorOfScan.toUpperCase(),
-        available_colors: finalColors,
+        color_of_scan: '',
+        available_colors: [],
         manufacturer: manufacturer.trim(),
         model: model.trim(),
         size: size.trim(),
+        note: contributionNote.trim() || null,
+        uploadFiles: files,
       }
 
       const result = await uploadHold({
@@ -167,7 +161,6 @@ export function AddHoldDialog({
         revision,
         accessToken: tokenForUpload,
         hold: metadata,
-        assetFile,
       })
 
       onUploaded({
@@ -314,41 +307,33 @@ export function AddHoldDialog({
                 </h3>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field
+                  <SelectWithOther
                     label="Manufacturer"
+                    placeholder="Select a manufacturer"
+                    options={creationOptions.manufacturers}
                     value={manufacturer}
                     onChange={setManufacturer}
-                    placeholder="Flathold"
                   />
-                  <Field
+                  <SelectWithOther
                     label="Model"
+                    placeholder="Select a model"
+                    options={creationOptions.models}
                     value={model}
                     onChange={setModel}
-                    placeholder="Macro 01"
                   />
-                  <Field
+                  <SelectWithOther
                     label="Type"
+                    placeholder="Select a type"
+                    options={creationOptions.holdTypes}
                     value={holdType}
                     onChange={setHoldType}
-                    placeholder="jug, crimp, sloper..."
                   />
-                  <Field label="Size" value={size} onChange={setSize} placeholder="XL" />
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Scan color
-                    </span>
-                    <input
-                      type="color"
-                      value={colorOfScan}
-                      onChange={(event) => setColorOfScan(event.target.value.toUpperCase())}
-                      className="h-12 w-full rounded-2xl border border-slate-300/80 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
-                    />
-                  </label>
-                  <Field
-                    label="Available colors"
-                    value={availableColors}
-                    onChange={setAvailableColors}
-                    placeholder="#FF3200, #2962A7"
+                  <SelectWithOther
+                    label="Size"
+                    placeholder="Select a size"
+                    options={creationOptions.sizes}
+                    value={size}
+                    onChange={setSize}
                   />
                 </div>
 
@@ -363,22 +348,36 @@ export function AddHoldDialog({
                     className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </label>
+
+                <label className="mt-4 block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Contribution note
+                  </span>
+                  <textarea
+                    value={contributionNote}
+                    onChange={(event) => setContributionNote(event.target.value)}
+                    placeholder="Anything helpful about this contribution..."
+                    className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    rows={3}
+                  />
+                </label>
               </section>
 
               <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  3D file
+                  Files
                 </h3>
                 <label className="mt-4 block">
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Primary asset
+                    Assets
                   </span>
                   <input
                     type="file"
-                    accept=".blend,.glb,model/gltf-binary"
-                    onChange={(event) =>
-                      setAssetFile(event.target.files?.[0] ?? null)
-                    }
+                    multiple
+                    onChange={(event) => {
+                      const selectedFiles = Array.from(event.target.files ?? [])
+                      setFiles(selectedFiles)
+                    }}
                     className="w-full rounded-2xl border border-dashed border-slate-300/80 bg-white px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                   />
                 </label>
@@ -390,30 +389,6 @@ export function AddHoldDialog({
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Reserved ID
-                </h3>
-                <div className="mt-4 space-y-3">
-                  <ReadOnlyField label="Numeric ID" value={String(holdPreview.numericId)} />
-                  <ReadOnlyField label="hold_id" value={holdPreview.holdId} />
-                  <ReadOnlyField label="Folder" value={holdPreview.path} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIdConfirmed((currentValue) => !currentValue)}
-                  className={`mt-4 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                    idConfirmed
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'border-slate-300/80 text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300'
-                  }`}
-                >
-                  {idConfirmed
-                    ? `ID ${holdPreview.holdId} confirmed`
-                    : `Confirm ID ${holdPreview.holdId}`}
-                </button>
-              </section>
-
               <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
                 <h3 className="font-semibold">Indexing note</h3>
                 <p className="mt-2">
@@ -423,16 +398,27 @@ export function AddHoldDialog({
                 </p>
               </section>
 
-              {assetFile && (
+              {files.length > 0 && (
                 <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Selected file
+                    Selected files
                   </h3>
-                  <p className="mt-3 text-sm text-slate-900 dark:text-slate-100">
-                    {assetFile.name}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {(assetFile.size / (1024 * 1024)).toFixed(2)} MB
+                  <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
+                    {files.map((file) => (
+                      <li key={file.name}>
+                        {file.name}{' '}
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Total size:{' '}
+                    {(files.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024)).toFixed(
+                      2,
+                    )}{' '}
+                    MB
                   </p>
                 </section>
               )}
@@ -477,43 +463,61 @@ export function AddHoldDialog({
   )
 }
 
-interface FieldProps {
+interface SelectWithOtherProps {
   label: string
   value: string
   onChange: (value: string) => void
+  options: string[]
   placeholder: string
 }
 
-function Field({ label, value, onChange, placeholder }: FieldProps) {
+function SelectWithOther({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: SelectWithOtherProps) {
+  const [isUsingOther, setIsUsingOther] = useState(false)
+
+  const isInOptions = options.includes(value)
+  const selectValue = isUsingOther ? 'other' : isInOptions ? value : ''
+
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
         {label}
       </span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-      />
+      <select
+        value={selectValue}
+        onChange={(event) => {
+          const next = event.target.value
+          if (next === 'other') {
+            setIsUsingOther(true)
+          } else {
+            setIsUsingOther(false)
+            onChange(next)
+          }
+        }}
+        className="w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value="other">Other…</option>
+      </select>
+      {isUsingOther && (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={`Custom ${label.toLowerCase()}`}
+          className="mt-2 w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        />
+      )}
     </label>
   )
 }
 
-interface ReadOnlyFieldProps {
-  label: string
-  value: string
-}
-
-function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      <div className="mt-2 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-        {value}
-      </div>
-    </div>
-  )
-}

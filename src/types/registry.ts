@@ -22,6 +22,7 @@ export interface RegistryStatsSnapshot {
 export interface AllowedReferences {
   manufacturers: string[]
   hold_types: string[]
+  status?: string[]
 }
 
 export interface HoldRecord {
@@ -37,6 +38,9 @@ export interface HoldRecord {
   manufacturer?: string | null
   model?: string | null
   size?: string | null
+  note?: string | null
+  status?: string | null
+  text?: string | null
 }
 
 export interface GlobalIndex {
@@ -69,6 +73,13 @@ export interface RegistryStats {
   cleanHolds: number
 }
 
+export interface CreationOptions {
+  manufacturers: string[]
+  holdTypes: string[]
+  models: string[]
+  sizes: string[]
+}
+
 export interface FilterOptions {
   manufacturers: string[]
   holdTypes: string[]
@@ -82,6 +93,7 @@ export interface RegistryView {
   holds: DerivedHold[]
   stats: RegistryStats
   filterOptions: FilterOptions
+  creationOptions: CreationOptions
   nextNumericId: number
   nextHoldId: string
 }
@@ -107,6 +119,8 @@ export interface NewHoldMetadata extends HoldRecord {
   manufacturer: string
   model: string
   size: string
+  note?: string | null
+  uploadFiles: File[]
 }
 
 export interface UploadHoldParams {
@@ -114,7 +128,6 @@ export interface UploadHoldParams {
   revision: string
   accessToken: string
   hold: NewHoldMetadata
-  assetFile: File
 }
 
 export interface UploadHoldResult {
