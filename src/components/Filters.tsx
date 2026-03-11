@@ -8,13 +8,9 @@ interface FiltersProps {
   onChange: (nextFilters: HoldFilters) => void
 }
 
-function toggleValue(values: string[], value: string) {
-  return values.includes(value)
-    ? values.filter((entry) => entry !== value)
-    : [...values, value]
-}
-
 export function Filters({ filters, options, onChange }: FiltersProps) {
+  const manufacturerValue = filters.manufacturers[0] ?? ''
+  const holdTypeValue = filters.holdTypes[0] ?? ''
   return (
     <aside className="rounded-3xl border border-slate-200/80 bg-white/85 p-5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
       <div className="flex items-center justify-between gap-3">
@@ -94,52 +90,46 @@ export function Filters({ filters, options, onChange }: FiltersProps) {
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Manufacturers
           </h3>
-          <div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
+          <select
+            value={manufacturerValue}
+            onChange={(event) => {
+              const value = event.target.value
+              onChange({
+                ...filters,
+                manufacturers: value ? [value] : [],
+              })
+            }}
+            className="mt-2 w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            <option value="">All</option>
             {options.manufacturers.map((manufacturer) => (
-              <label
-                key={manufacturer}
-                className="flex items-center gap-3 rounded-xl px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <input
-                  type="checkbox"
-                  checked={filters.manufacturers.includes(manufacturer)}
-                  onChange={() =>
-                    onChange({
-                      ...filters,
-                      manufacturers: toggleValue(filters.manufacturers, manufacturer),
-                    })
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                />
+              <option key={manufacturer} value={manufacturer}>
                 {manufacturer}
-              </label>
+              </option>
             ))}
-          </div>
+          </select>
         </section>
 
         <section>
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Types</h3>
-          <div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
+          <select
+            value={holdTypeValue}
+            onChange={(event) => {
+              const value = event.target.value
+              onChange({
+                ...filters,
+                holdTypes: value ? [value] : [],
+              })
+            }}
+            className="mt-2 w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            <option value="">All</option>
             {options.holdTypes.map((holdType) => (
-              <label
-                key={holdType}
-                className="flex items-center gap-3 rounded-xl px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <input
-                  type="checkbox"
-                  checked={filters.holdTypes.includes(holdType)}
-                  onChange={() =>
-                    onChange({
-                      ...filters,
-                      holdTypes: toggleValue(filters.holdTypes, holdType),
-                    })
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                />
+              <option key={holdType} value={holdType}>
                 {holdType}
-              </label>
+              </option>
             ))}
-          </div>
+          </select>
         </section>
       </div>
     </aside>
