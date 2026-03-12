@@ -37,12 +37,31 @@ function getInitialTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-// Eager-load hero hold image URLs; empty if no PNGs in folder.
-const heroHoldGlob = import.meta.glob<{ default: string }>(
-  '/src/assets/hero-holds/*.png',
-  { eager: true, query: '?url' },
+const heroHoldGlob = import.meta.glob<{ default: string } | string>(
+  '../assets/hero-holds/*.png',
+  { eager: true, query: '?url', import: 'default' },
 )
-const heroHoldUrls: string[] = Object.values(heroHoldGlob).map((m) => m.default)
+const heroHoldUrls: string[] = Object.values(heroHoldGlob).map((m) =>
+  typeof m === 'string' ? m : (m && typeof m === 'object' && 'default' in m ? m.default : ''),
+).filter(Boolean)
+
+/** Minimum number of images in the hero grid; repeat assets if fewer are available */
+const MIN_HERO_HOLD_COUNT = 48
+
+function getHeroHoldUrlsForGrid(): string[] {
+  if (heroHoldUrls.length === 0) return []
+  let list: string[] = heroHoldUrls
+  if (heroHoldUrls.length < MIN_HERO_HOLD_COUNT) {
+    list = []
+    while (list.length < MIN_HERO_HOLD_COUNT) {
+      for (const url of heroHoldUrls) {
+        list.push(url)
+        if (list.length >= MIN_HERO_HOLD_COUNT) break
+      }
+    }
+  }
+  return [...list, ...list]
+}
 
 export function HomePage() {
   const { data, error, isLoading, refresh, repoId, revision } = useRegistry()
@@ -75,33 +94,35 @@ export function HomePage() {
   return (
     <main className="min-h-screen text-slate-900 dark:text-slate-100">
       <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-6 sm:px-6 lg:px-8">
-        {/* Hero: dark bg + scrolling holds grid + blur + title */}
-        <section className="relative min-h-[70vh] w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-slate-950 shadow-sm dark:border-slate-800">
+        <section className="relative min-h-[70vh] w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div
-            className="absolute inset-0 overflow-hidden opacity-30"
+            className="absolute inset-0 h-full w-full overflow-hidden opacity-60 dark:opacity-50"
             aria-hidden
-            style={{ filter: 'blur(8px)' }}
+            style={{ filter: 'blur(1px)' }}
           >
             {heroHoldUrls.length > 0 ? (
-              <div className="hero-holds-grid">
-                {[...heroHoldUrls, ...heroHoldUrls].map((url, i) => (
+              <div
+                className="absolute inset-0 grid h-[200%] w-full grid-cols-12 grid-rows-8 gap-x-px gap-y-0"
+                style={{ animation: 'hero-holds-scroll 60s linear infinite' }}
+              >
+                {getHeroHoldUrlsForGrid().map((url, i) => (
                   <img
                     key={`${url}-${i}`}
                     src={url}
                     alt=""
-                    className="h-16 w-16 object-contain opacity-80 sm:h-20 sm:w-20"
+                    className="h-full w-full shrink-0 object-contain opacity-90"
                   />
                 ))}
               </div>
             ) : (
-              <div className="h-full w-full bg-slate-900/80" />
+              <div className="h-full w-full bg-slate-200/80 dark:bg-slate-900/80" />
             )}
           </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70">
             <h1 className="text-center text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
               First climbing holds 3D dataset
             </h1>
-            <p className="mt-4 max-w-xl text-center text-lg text-slate-300 sm:text-xl">
+            <p className="mt-4 max-w-xl text-center text-lg text-slate-200 sm:text-xl dark:text-slate-300">
               Help numeric solutions empower the climbing industry
             </p>
           </div>

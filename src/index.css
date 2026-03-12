@@ -59,26 +59,12 @@ a {
   text-decoration: none;
 }
 
-/* Hero background: scrolling grid of hold thumbnails */
+/* Hero: keyframes only; layout is in HomePage via Tailwind */
 @keyframes hero-holds-scroll {
   0% {
-    transform: translateX(0);
+    transform: translateY(0);
   }
   100% {
-    transform: translateX(-50%);
+    transform: translateY(-50%);
   }
-}
-
-.hero-holds-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-content: flex-start;
-  justify-content: flex-start;
-  min-width: max-content;
-  animation: hero-holds-scroll 60s linear infinite;
-}
-
-.hero-holds-grid img {
-  flex-shrink: 0;
 }
