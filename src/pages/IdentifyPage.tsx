@@ -12,7 +12,7 @@ import {
   getStoredAccessToken,
   saveAccessToken,
 } from '../lib/hf'
-import { VOTE_WEBHOOK_URL } from '../lib/env'
+import { VOTE_WEBHOOK_URL, VOTE_WEBHOOK_SECRET } from '../lib/env'
 
 import type { DerivedHold } from '../types/registry'
 
@@ -111,9 +111,13 @@ export function IdentifyPage() {
     }
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (VOTE_WEBHOOK_SECRET.length > 0) {
+        headers['X-Webhook-Secret'] = VOTE_WEBHOOK_SECRET
+      }
       const response = await fetch(VOTE_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       })
 

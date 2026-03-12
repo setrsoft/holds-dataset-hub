@@ -30,3 +30,8 @@ export const VOTE_WEBHOOK_URL = orDefault(
   import.meta.env.VITE_VOTE_WEBHOOK_URL,
   '/vote',
 )
+/** Optional secret sent as X-Webhook-Secret when calling the vote webhook (e.g. HF Space). */
+export const VOTE_WEBHOOK_SECRET = orDefault(
+  import.meta.env.VITE_VOTE_WEBHOOK_SECRET,
+  '',
+)
