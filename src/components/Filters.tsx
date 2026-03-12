@@ -1,4 +1,5 @@
-import { RotateCcw, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, RotateCcw, Search } from 'lucide-react'
+import { useState } from 'react'
 
 import type { FilterOptions, HoldFilters } from '../types/registry'
 
@@ -6,38 +7,61 @@ interface FiltersProps {
   filters: HoldFilters
   options: FilterOptions
   onChange: (nextFilters: HoldFilters) => void
+  /** When true, the filter controls are hidden by default; click header to expand. */
+  defaultCollapsed?: boolean
 }
 
-export function Filters({ filters, options, onChange }: FiltersProps) {
+export function Filters({
+  filters,
+  options,
+  onChange,
+  defaultCollapsed = false,
+}: FiltersProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const manufacturerValue = filters.manufacturers[0] ?? ''
   const holdTypeValue = filters.holdTypes[0] ?? ''
   return (
     <aside className="rounded-3xl border border-slate-200/80 bg-white/85 p-5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/85">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Filters</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Quickly filter the registry.
-          </p>
-        </div>
         <button
           type="button"
-          onClick={() =>
-            onChange({
-              search: '',
-              manufacturers: [],
-              holdTypes: [],
-              status: 'all',
-              needsAttentionOnly: false,
-            })
-          }
-          className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-2 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-white"
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex flex-1 items-center gap-2 text-left"
+          aria-expanded={!collapsed}
         >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset
+          {collapsed ? (
+            <ChevronRight className="h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          ) : (
+            <ChevronDown className="h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
+          )}
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Filters</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Quickly filter the registry.
+            </p>
+          </div>
         </button>
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                search: '',
+                manufacturers: [],
+                holdTypes: [],
+                status: 'all',
+                needsAttentionOnly: false,
+              })
+            }
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-2 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-white"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </button>
+        )}
       </div>
 
+      {!collapsed && (
       <div className="mt-5 space-y-6">
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -132,6 +156,7 @@ export function Filters({ filters, options, onChange }: FiltersProps) {
           </select>
         </section>
       </div>
+      )}
     </aside>
   )
 }

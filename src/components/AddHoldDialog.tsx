@@ -1,5 +1,5 @@
 import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import {
   ANONYMOUS_CONTRIBUTIONS_REPO_ID,
@@ -82,14 +82,6 @@ export function AddHoldDialog({
   const anonymousToken = HF_ANONYMOUS_TOKEN.length > 0 ? HF_ANONYMOUS_TOKEN : null
   const tokenForUpload =
     publishAnonymously && anonymousToken ? anonymousToken : activeToken
-
-  const holdPreview = useMemo(
-    () => ({
-      numericId: nextNumericId,
-      holdId: nextHoldId,
-    }),
-    [nextHoldId, nextNumericId],
-  )
 
   if (!open) {
     return null
@@ -456,7 +448,7 @@ export function AddHoldDialog({
   )
 }
 
-interface SelectWithOtherProps {
+export interface SelectWithOtherProps {
   label: string
   value: string
   onChange: (value: string) => void
@@ -464,7 +456,7 @@ interface SelectWithOtherProps {
   placeholder: string
 }
 
-function SelectWithOther({
+export function SelectWithOther({
   label,
   value,
   onChange,
