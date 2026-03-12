@@ -1,15 +1,20 @@
-import { LoaderCircle, ScanSearch } from 'lucide-react'
-import { useMemo, useState, Suspense } from 'react'
+import { LoaderCircle, ScanSearch, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 
 import { useRegistry } from '../hooks/useRegistry'
 import { SelectWithOther } from '../components/AddHoldDialog'
+import { StarRating } from '../components/StarRating'
+import {
+  clearAccessToken,
+  getStoredAccessToken,
+  saveAccessToken,
+} from '../lib/hf'
+import { VOTE_WEBHOOK_URL } from '../lib/env'
 
 import type { DerivedHold } from '../types/registry'
-
-const IDENTIFY_STORAGE_KEY = 'settersoft-identify-pending'
 
 function getHoldsToIdentify(holds: DerivedHold[]): DerivedHold[] {
   return holds.filter(
@@ -42,7 +47,29 @@ export function IdentifyPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [manufacturer, setManufacturer] = useState('')
   const [model, setModel] = useState('')
+  const [hold3dFileRating, setHold3dFileRating] = useState(0)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const [storedToken, setStoredToken] = useState(() => getStoredAccessToken())
+  const [tokenInput, setTokenInput] = useState('')
+  const [replaceStoredToken, setReplaceStoredToken] = useState(false)
+  const [rememberToken, setRememberToken] = useState(true)
+  const [voteAnonymously, setVoteAnonymously] = useState(
+    () => getStoredAccessToken().length === 0,
+  )
+
+  const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
+  const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
+  const isAnonymous = voteAnonymously || activeToken.length === 0
+
+  useEffect(() => {
+    const token = getStoredAccessToken()
+    setStoredToken(token)
+    if (token.length > 0) {
+      setVoteAnonymously(false)
+    }
+  }, [])
 
   const currentHold: DerivedHold | null =
     shuffledHolds.length > 0
@@ -60,28 +87,56 @@ export function IdentifyPage() {
     if (shuffledHolds.length <= 1) return
     setCurrentIndex((i) => (i + 1) % shuffledHolds.length)
     setSubmitMessage(null)
+    setSubmitError(null)
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setSubmitError(null)
+    setSubmitMessage(null)
     if (!currentHold || !manufacturer.trim() || !model.trim()) return
+    if (!voteAnonymously && activeToken.length === 0) {
+      setSubmitError('Enter a Hugging Face token or vote anonymously.')
+      return
+    }
+
     const payload = {
       hold_id: currentHold.hold_id,
-      manufacturer: manufacturer.trim(),
-      model: model.trim(),
-      submitted_at: new Date().toISOString(),
+      hold_manufacturer: manufacturer.trim(),
+      hold_model: model.trim(),
+      hold_3d_file_rating: Math.min(5, Math.max(0, hold3dFileRating)),
+      vote_datetime: new Date().toISOString(),
+      anonymous: isAnonymous,
+      ...(isAnonymous ? {} : { hf_token: activeToken }),
     }
+
     try {
-      const stored = window.localStorage.getItem(IDENTIFY_STORAGE_KEY)
-      const list = stored ? (JSON.parse(stored) as unknown[]) : []
-      list.push(payload)
-      window.localStorage.setItem(IDENTIFY_STORAGE_KEY, JSON.stringify(list))
-    } catch {
-      // ignore
+      const response = await fetch(VOTE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || `HTTP ${response.status}`)
+      }
+
+      if (rememberToken && activeToken.length > 0 && !voteAnonymously) {
+        saveAccessToken(activeToken)
+        setStoredToken(activeToken)
+        setReplaceStoredToken(false)
+      }
+
+      setSubmitMessage('Vote enregistré.')
+      setManufacturer('')
+      setModel('')
+      setHold3dFileRating(0)
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to submit vote.',
+      )
     }
-    setSubmitMessage(
-      'Identification saved locally. Hugging Face integration will be available later.',
-    )
   }
 
   if (isLoading && !data) {
@@ -186,6 +241,71 @@ export function IdentifyPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+              <div className="rounded-2xl border border-slate-200/80 p-4 dark:border-slate-800">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={voteAnonymously}
+                    onChange={(e) => setVoteAnonymously(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Vote anonymously
+                  </span>
+                </label>
+                {!voteAnonymously && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Hugging Face token
+                    </p>
+                    {hasStoredToken ? (
+                      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                        Hugging Face token is already saved locally.
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setReplaceStoredToken(true)}
+                            className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
+                          >
+                            Replace
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearAccessToken()
+                              setStoredToken('')
+                              setReplaceStoredToken(true)
+                            }}
+                            className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete local token
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <input
+                          type="password"
+                          value={tokenInput}
+                          onChange={(e) => setTokenInput(e.target.value)}
+                          placeholder="hf_..."
+                          className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                        <label className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={rememberToken}
+                            onChange={(e) => setRememberToken(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          Save this token in browser
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 <SelectWithOther
                   label="Manufacturer"
@@ -202,6 +322,16 @@ export function IdentifyPage() {
                   onChange={setModel}
                 />
               </div>
+              <StarRating
+                label="Hold file quality"
+                value={hold3dFileRating}
+                onChange={setHold3dFileRating}
+              />
+              {submitError && (
+                <p className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-300">
+                  {submitError}
+                </p>
+              )}
               {submitMessage && (
                 <p className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
                   {submitMessage}
@@ -209,7 +339,11 @@ export function IdentifyPage() {
               )}
               <button
                 type="submit"
-                disabled={!manufacturer.trim() || !model.trim()}
+                disabled={
+                  !manufacturer.trim() ||
+                  !model.trim() ||
+                  (!voteAnonymously && activeToken.length === 0)
+                }
                 className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400"
               >
                 Submit identification

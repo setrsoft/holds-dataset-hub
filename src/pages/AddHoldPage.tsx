@@ -211,10 +211,11 @@ export function AddHoldPage() {
             )}
           </div>
           <Link
-            to="/"
+            to="/add-hold"
+            onClick={() => setUploadSuccess(null)}
             className="mt-6 inline-block rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white dark:bg-sky-500 dark:text-slate-950"
           >
-            Back to home
+            Add more holds
           </Link>
         </div>
       </main>

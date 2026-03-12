@@ -25,3 +25,8 @@ export const HF_ANONYMOUS_TOKEN = orDefault(
   '',
 )
 export const BASE_PATH = orDefault(import.meta.env.VITE_BASE_PATH, '')
+/** Base URL for the vote webhook (POST). Defaults to same-origin /vote. */
+export const VOTE_WEBHOOK_URL = orDefault(
+  import.meta.env.VITE_VOTE_WEBHOOK_URL,
+  '/vote',
+)
