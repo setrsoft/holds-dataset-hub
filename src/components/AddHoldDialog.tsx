@@ -1,16 +1,18 @@
-import { LoaderCircle, Trash2, Upload, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import {
+  ANONYMOUS_CONTRIBUTIONS_REPO_ID,
   clearAccessToken,
   getStoredAccessToken,
   saveAccessToken,
   uploadHold,
   validateAccessToken,
 } from '../lib/hf'
+import { HF_ANONYMOUS_TOKEN } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 
-import type { NewHoldMetadata } from '../types/registry'
+import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
 interface AddHoldDialogProps {
   open: boolean
@@ -18,6 +20,7 @@ interface AddHoldDialogProps {
   nextHoldId: string
   repoId: string
   revision: string
+  creationOptions: CreationOptions
   onClose: () => void
   onUploaded: (payload: { message: string; commitUrl?: string }) => void
 }
@@ -37,6 +40,7 @@ export function AddHoldDialog({
   nextHoldId,
   repoId,
   revision,
+  creationOptions,
   onClose,
   onUploaded,
 }: AddHoldDialogProps) {
@@ -48,11 +52,10 @@ export function AddHoldDialog({
   const [model, setModel] = useState('')
   const [holdType, setHoldType] = useState('')
   const [size, setSize] = useState('')
-  const [colorOfScan, setColorOfScan] = useState('#FF3200')
-  const [availableColors, setAvailableColors] = useState('#FF3200, #2962A7')
   const [labels, setLabels] = useState('')
-  const [assetFile, setAssetFile] = useState<File | null>(null)
-  const [idConfirmed, setIdConfirmed] = useState(false)
+  const [contributionNote, setContributionNote] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
@@ -62,30 +65,23 @@ export function AddHoldDialog({
     }
 
     setError(null)
-    setIdConfirmed(false)
-    setAssetFile(null)
+    setFiles([])
     setManufacturer('')
     setModel('')
     setHoldType('')
     setSize('')
-    setColorOfScan('#FF3200')
-    setAvailableColors('#FF3200, #2962A7')
     setLabels('')
+    setContributionNote('')
     setStoredToken(getStoredAccessToken())
     setReplaceStoredToken(false)
+    setPublishAnonymously(false)
   }, [open, nextHoldId])
 
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
   const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
-
-  const holdPreview = useMemo(
-    () => ({
-      numericId: nextNumericId,
-      holdId: nextHoldId,
-      path: `${nextHoldId}/`,
-    }),
-    [nextHoldId, nextNumericId],
-  )
+  const anonymousToken = HF_ANONYMOUS_TOKEN.length > 0 ? HF_ANONYMOUS_TOKEN : null
+  const tokenForUpload =
+    publishAnonymously && anonymousToken ? anonymousToken : activeToken
 
   if (!open) {
     return null
@@ -95,13 +91,8 @@ export function AddHoldDialog({
     event.preventDefault()
     setError(null)
 
-    if (!activeToken) {
+    if (!tokenForUpload) {
       setError('A Hugging Face token is required to upload a new hold.')
-      return
-    }
-
-    if (!idConfirmed) {
-      setError("Confirm the computed ID before uploading.")
       return
     }
 
@@ -110,30 +101,34 @@ export function AddHoldDialog({
       return
     }
 
-    if (!assetFile) {
-      setError('Add a `.blend` or `.glb` file before continuing.')
+    if (files.length === 0) {
+      setError('Add at least one file before continuing.')
       return
     }
 
-    const lowerName = assetFile.name.toLowerCase()
-    if (!lowerName.endsWith('.blend') && !lowerName.endsWith('.glb')) {
-      setError('The primary file must be a `.blend` or `.glb` file.')
+    const totalSizeBytes = files.reduce((sum, file) => sum + file.size, 0)
+    const maxAnonymousBytes = 5 * 1024 * 1024 * 1024
+    if (publishAnonymously && totalSizeBytes > maxAnonymousBytes) {
+      setError('When publishing anonymously, total file size must be at most 5 GiB.')
       return
     }
 
     setIsUploading(true)
 
     try {
-      await validateAccessToken(activeToken)
+      await validateAccessToken(tokenForUpload)
 
-      if (!hasStoredToken && rememberToken) {
+      if (
+        tokenForUpload === activeToken &&
+        !hasStoredToken &&
+        rememberToken &&
+        activeToken
+      ) {
         saveAccessToken(activeToken)
         setStoredToken(activeToken)
       }
 
       const now = new Date()
-      const parsedColors = parseCommaSeparatedValues(availableColors)
-      const finalColors = Array.from(new Set([colorOfScan.toUpperCase(), ...parsedColors]))
 
       const metadata: NewHoldMetadata = {
         id: nextNumericId,
@@ -143,25 +138,28 @@ export function AddHoldDialog({
         timezone_offset: getTimezoneOffsetLabel(now),
         type: holdType.trim().toLowerCase(),
         labels: parseCommaSeparatedValues(labels),
-        color_of_scan: colorOfScan.toUpperCase(),
-        available_colors: finalColors,
+        color_of_scan: '',
+        available_colors: [],
         manufacturer: manufacturer.trim(),
         model: model.trim(),
         size: size.trim(),
+        note: contributionNote.trim() || null,
+        uploadFiles: files,
       }
 
       const result = await uploadHold({
-        repoId,
+        repoId: publishAnonymously ? ANONYMOUS_CONTRIBUTIONS_REPO_ID : repoId,
         revision,
-        accessToken: activeToken,
+        accessToken: tokenForUpload,
         hold: metadata,
-        assetFile,
       })
 
       onUploaded({
-        message:
-          `Hold ${nextHoldId} was uploaded to Hugging Face. ` +
-          'It will appear in the gallery after the next index regeneration.',
+        message: (
+          `Your contribution was uploaded to Hugging Face in the pending area. ` +
+          `It will be assigned an official ID (e.g. around ${nextHoldId}) and appear in the gallery ` +
+          `after the next index regeneration.`
+        ),
         commitUrl: result.commitUrl,
       })
       onClose()
@@ -181,15 +179,9 @@ export function AddHoldDialog({
       <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-6 py-5 dark:border-slate-800">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Add a hold
-            </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
-              New folder {holdPreview.path}
+              New hold
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              The ID is computed automatically to avoid collisions.
-            </p>
           </div>
           <button
             type="button"
@@ -209,59 +201,87 @@ export function AddHoldDialog({
                 </h3>
 
                 <div className="mt-4 space-y-4">
-                  <div className="rounded-2xl bg-slate-100/80 p-4 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                    Target repo: <strong>{repoId}</strong>
-                    <br />
-                    Branch: <strong>{revision}</strong>
-                  </div>
-
-                  {hasStoredToken ? (
-                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                      Hugging Face token is already saved locally.
-                      <div className="mt-3 flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setReplaceStoredToken(true)}
-                          className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
+                  <label className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={publishAnonymously}
+                      onChange={(event) => setPublishAnonymously(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    Publish anonymously
+                  </label>
+                  {publishAnonymously && (
+                    <div
+                      role="alert"
+                      className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
+                    >
+                      Anonymous contributions might take longer to be integrated.
+                      <p className="mt-2">
+                        Please consider creating{' '}
+                        <a
+                          href="https://huggingface.co/join"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:no-underline"
                         >
-                          Replace
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            clearAccessToken()
-                            setStoredToken('')
-                            setReplaceStoredToken(true)
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete local token
-                        </button>
-                      </div>
+                          a Hugging Face account
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        </a>
+                        .
+                      </p>
                     </div>
-                  ) : (
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Hugging Face token
-                      </span>
-                      <input
-                        type="password"
-                        value={tokenInput}
-                        onChange={(event) => setTokenInput(event.target.value)}
-                        placeholder="hf_..."
-                        className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                      />
-                      <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={rememberToken}
-                          onChange={(event) => setRememberToken(event.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                        />
-                        Save this token in localStorage
-                      </label>
-                    </label>
+                  )}
+                  {!publishAnonymously && (
+                    <>
+                      {hasStoredToken ? (
+                        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                          Hugging Face token is already saved locally.
+                          <div className="mt-3 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setReplaceStoredToken(true)}
+                              className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
+                            >
+                              Replace
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearAccessToken()
+                                setStoredToken('')
+                                setReplaceStoredToken(true)
+                              }}
+                              className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete local token
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="block">
+                          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Hugging Face token
+                          </span>
+                          <input
+                            type="text"
+                            value={tokenInput}
+                            onChange={(event) => setTokenInput(event.target.value)}
+                            placeholder="hf_..."
+                            className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                          />
+                          <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={rememberToken}
+                              onChange={(event) => setRememberToken(event.target.checked)}
+                              className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                            />
+                            Save this token in browser
+                          </label>
+                        </label>
+                      )}
+                    </>
                   )}
                 </div>
               </section>
@@ -272,41 +292,33 @@ export function AddHoldDialog({
                 </h3>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field
+                  <SelectWithOther
                     label="Manufacturer"
+                    placeholder="Select a manufacturer"
+                    options={creationOptions.manufacturers}
                     value={manufacturer}
                     onChange={setManufacturer}
-                    placeholder="Flathold"
                   />
-                  <Field
+                  <SelectWithOther
                     label="Model"
+                    placeholder="Select a model"
+                    options={creationOptions.models}
                     value={model}
                     onChange={setModel}
-                    placeholder="Macro 01"
                   />
-                  <Field
+                  <SelectWithOther
                     label="Type"
+                    placeholder="Select a type"
+                    options={creationOptions.holdTypes}
                     value={holdType}
                     onChange={setHoldType}
-                    placeholder="jug, crimp, sloper..."
                   />
-                  <Field label="Size" value={size} onChange={setSize} placeholder="XL" />
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Scan color
-                    </span>
-                    <input
-                      type="color"
-                      value={colorOfScan}
-                      onChange={(event) => setColorOfScan(event.target.value.toUpperCase())}
-                      className="h-12 w-full rounded-2xl border border-slate-300/80 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
-                    />
-                  </label>
-                  <Field
-                    label="Available colors"
-                    value={availableColors}
-                    onChange={setAvailableColors}
-                    placeholder="#FF3200, #2962A7"
+                  <SelectWithOther
+                    label="Size"
+                    placeholder="Select a size"
+                    options={creationOptions.sizes}
+                    value={size}
+                    onChange={setSize}
                   />
                 </div>
 
@@ -321,22 +333,36 @@ export function AddHoldDialog({
                     className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </label>
+
+                <label className="mt-4 block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Contribution note
+                  </span>
+                  <textarea
+                    value={contributionNote}
+                    onChange={(event) => setContributionNote(event.target.value)}
+                    placeholder="Anything helpful about this contribution..."
+                    className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    rows={3}
+                  />
+                </label>
               </section>
 
               <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  3D file
+                  Files
                 </h3>
                 <label className="mt-4 block">
                   <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Primary asset
+                    Assets
                   </span>
                   <input
                     type="file"
-                    accept=".blend,.glb,model/gltf-binary"
-                    onChange={(event) =>
-                      setAssetFile(event.target.files?.[0] ?? null)
-                    }
+                    multiple
+                    onChange={(event) => {
+                      const selectedFiles = Array.from(event.target.files ?? [])
+                      setFiles(selectedFiles)
+                    }}
                     className="w-full rounded-2xl border border-dashed border-slate-300/80 bg-white px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                   />
                 </label>
@@ -348,30 +374,6 @@ export function AddHoldDialog({
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 dark:border-slate-800 dark:bg-slate-900/60">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Reserved ID
-                </h3>
-                <div className="mt-4 space-y-3">
-                  <ReadOnlyField label="Numeric ID" value={String(holdPreview.numericId)} />
-                  <ReadOnlyField label="hold_id" value={holdPreview.holdId} />
-                  <ReadOnlyField label="Folder" value={holdPreview.path} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIdConfirmed((currentValue) => !currentValue)}
-                  className={`mt-4 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                    idConfirmed
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'border-slate-300/80 text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300'
-                  }`}
-                >
-                  {idConfirmed
-                    ? `ID ${holdPreview.holdId} confirmed`
-                    : `Confirm ID ${holdPreview.holdId}`}
-                </button>
-              </section>
-
               <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
                 <h3 className="font-semibold">Indexing note</h3>
                 <p className="mt-2">
@@ -381,16 +383,27 @@ export function AddHoldDialog({
                 </p>
               </section>
 
-              {assetFile && (
+              {files.length > 0 && (
                 <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Selected file
+                    Selected files
                   </h3>
-                  <p className="mt-3 text-sm text-slate-900 dark:text-slate-100">
-                    {assetFile.name}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {(assetFile.size / (1024 * 1024)).toFixed(2)} MB
+                  <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
+                    {files.map((file) => (
+                      <li key={file.name}>
+                        {file.name}{' '}
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Total size:{' '}
+                    {(files.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024)).toFixed(
+                      2,
+                    )}{' '}
+                    MB
                   </p>
                 </section>
               )}
@@ -435,43 +448,61 @@ export function AddHoldDialog({
   )
 }
 
-interface FieldProps {
+export interface SelectWithOtherProps {
   label: string
   value: string
   onChange: (value: string) => void
+  options: string[]
   placeholder: string
 }
 
-function Field({ label, value, onChange, placeholder }: FieldProps) {
+export function SelectWithOther({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: SelectWithOtherProps) {
+  const [isUsingOther, setIsUsingOther] = useState(false)
+
+  const isInOptions = options.includes(value)
+  const selectValue = isUsingOther ? 'other' : isInOptions ? value : ''
+
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
         {label}
       </span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-      />
+      <select
+        value={selectValue}
+        onChange={(event) => {
+          const next = event.target.value
+          if (next === 'other') {
+            setIsUsingOther(true)
+          } else {
+            setIsUsingOther(false)
+            onChange(next)
+          }
+        }}
+        className="w-full rounded-2xl border border-slate-300/80 bg-white px-3 py-2 text-sm text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value="other">Other…</option>
+      </select>
+      {isUsingOther && (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={`Custom ${label.toLowerCase()}`}
+          className="mt-2 w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        />
+      )}
     </label>
   )
 }
 
-interface ReadOnlyFieldProps {
-  label: string
-  value: string
-}
-
-function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      <div className="mt-2 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-        {value}
-      </div>
-    </div>
-  )
-}

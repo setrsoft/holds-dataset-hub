@@ -58,3 +58,13 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Hero: keyframes only; layout is in HomePage via Tailwind */
+@keyframes hero-holds-scroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}

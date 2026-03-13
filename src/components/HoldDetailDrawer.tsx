@@ -111,10 +111,10 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
             href={hold.links.hubFolderUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium !text-white transition hover:bg-slate-800 dark:bg-sky-500 dark:hover:bg-sky-400"
           >
-            <ExternalLink className="h-4 w-4" />
-            Contribuer sur Hugging Face
+            <ExternalLink className="h-4 w-4 shrink-0 text-current" />
+            Contribute on Hugging Face
           </a>
           <div className="grid gap-3 sm:grid-cols-2">
             <a

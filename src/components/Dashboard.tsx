@@ -17,7 +17,7 @@ import { HoldDetailDrawer } from './HoldDetailDrawer'
 import { StatsCards } from './StatsCards'
 import { ThemeToggle } from './ThemeToggle'
 
-import type { DerivedHold, HoldFilters } from '../types/registry'
+import type { CreationOptions, DerivedHold, HoldFilters } from '../types/registry'
 
 const THEME_STORAGE_KEY = 'settersoft-registry.theme'
 
@@ -53,6 +53,7 @@ export function Dashboard() {
     message: string
     commitUrl?: string
   } | null>(null)
+  const creationOptions: CreationOptions | null = data ? data.creationOptions : null
 
   useEffect(() => {
     const rootElement = document.documentElement
@@ -90,7 +91,7 @@ export function Dashboard() {
                 SetterSoft Registry
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                Technical dashboard for the climbing holds dataset
+                Climbing holds dataset manager
               </h1>
               <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
                 Explore `global_index.json`, filter holds, inspect metadata, and
@@ -218,13 +219,14 @@ export function Dashboard() {
 
       <HoldDetailDrawer hold={selectedHold} onClose={() => setSelectedHoldId(null)} />
 
-      {data && (
+      {data && creationOptions && (
         <AddHoldDialog
           open={isAddDialogOpen}
           nextNumericId={data.nextNumericId}
           nextHoldId={data.nextHoldId}
           repoId={repoId}
           revision={revision}
+          creationOptions={creationOptions}
           onClose={() => setIsAddDialogOpen(false)}
           onUploaded={(payload) => {
             setUploadFeedback(payload)
