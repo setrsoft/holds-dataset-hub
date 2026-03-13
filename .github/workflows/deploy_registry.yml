@@ -55,7 +55,12 @@ jobs:
           VITE_HF_ANONYMOUS_REPO_ID: ${{ secrets.VITE_HF_ANONYMOUS_REPO_ID }}
           VITE_HF_ANONYMOUS_TOKEN: ${{ secrets.VITE_HF_ANONYMOUS_TOKEN }}
           VITE_BASE_PATH: ${{ secrets.VITE_BASE_PATH }}
+          VITE_VOTE_WEBHOOK_URL: ${{ secrets.VITE_VOTE_WEBHOOK_URL }}
+          VITE_VOTE_WEBHOOK_SECRET: ${{ secrets.VITE_VOTE_WEBHOOK_SECRET }}
         run: npm run build
+
+      - name: SPA fallback for GitHub Pages
+        run: cp dist/index.html dist/404.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
