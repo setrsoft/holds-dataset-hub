@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import {
-  ANONYMOUS_CONTRIBUTIONS_REPO_ID,
   clearAccessToken,
   getStoredAccessToken,
   saveAccessToken,
