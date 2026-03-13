@@ -107,13 +107,15 @@ export function IdentifyPage() {
       hold_3d_file_rating: Math.min(5, Math.max(0, hold3dFileRating)),
       vote_datetime: new Date().toISOString(),
       anonymous: isAnonymous,
-      ...(isAnonymous ? {} : { hf_token: activeToken }),
     }
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (VOTE_WEBHOOK_SECRET.length > 0) {
         headers['X-Webhook-Secret'] = VOTE_WEBHOOK_SECRET
+      }
+      if (!isAnonymous && activeToken.length > 0) {
+        headers['Authorization'] = `Bearer ${activeToken}`
       }
       const response = await fetch(VOTE_WEBHOOK_URL, {
         method: 'POST',
