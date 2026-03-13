@@ -8,9 +8,10 @@ import {
   getStoredAccessToken,
   saveAccessToken,
   uploadHold,
+  uploadHoldAnonymous,
   validateAccessToken,
 } from '../lib/hf'
-import { HF_ANONYMOUS_TOKEN } from '../lib/env'
+import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 import { useRegistry } from '../hooks/useRegistry'
 import { SelectWithOther } from '../components/AddHoldDialog'
@@ -65,16 +66,14 @@ export function AddHoldPage() {
 
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
   const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
-  const anonymousToken = HF_ANONYMOUS_TOKEN.length > 0 ? HF_ANONYMOUS_TOKEN : null
-  const tokenForUpload =
-    publishAnonymously && anonymousToken ? anonymousToken : activeToken
+  const anonymousUploadAvailable = ANONYMOUS_UPLOAD_URL.length > 0
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
     if (!data) return
 
-    if (!tokenForUpload) {
+    if (!publishAnonymously && !activeToken) {
       setFormError('A Hugging Face token is required to upload a new hold.')
       return
     }
@@ -95,17 +94,6 @@ export function AddHoldPage() {
 
     setIsUploading(true)
     try {
-      await validateAccessToken(tokenForUpload)
-      if (
-        tokenForUpload === activeToken &&
-        !hasStoredToken &&
-        rememberToken &&
-        activeToken
-      ) {
-        saveAccessToken(activeToken)
-        setStoredToken(activeToken)
-      }
-
       const now = new Date()
       const metadata: NewHoldMetadata = {
         id: data.nextNumericId,
@@ -124,12 +112,22 @@ export function AddHoldPage() {
         uploadFiles: files,
       }
 
-      const result = await uploadHold({
-        repoId: publishAnonymously ? ANONYMOUS_CONTRIBUTIONS_REPO_ID : repoId,
-        revision,
-        accessToken: tokenForUpload,
-        hold: metadata,
-      })
+      let result
+      if (publishAnonymously) {
+        result = await uploadHoldAnonymous(metadata)
+      } else {
+        await validateAccessToken(activeToken)
+        if (!hasStoredToken && rememberToken && activeToken) {
+          saveAccessToken(activeToken)
+          setStoredToken(activeToken)
+        }
+        result = await uploadHold({
+          repoId,
+          revision,
+          accessToken: activeToken,
+          hold: metadata,
+        })
+      }
 
       setUploadSuccess({
         message:
@@ -255,14 +253,18 @@ export function AddHoldPage() {
                     Hugging Face
                   </h3>
                   <div className="mt-4 space-y-4">
-                    <label className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                    <label className={`flex items-center gap-3 text-sm ${anonymousUploadAvailable ? 'text-slate-600 dark:text-slate-300' : 'cursor-not-allowed text-slate-400 dark:text-slate-600'}`}>
                       <input
                         type="checkbox"
                         checked={publishAnonymously}
                         onChange={(e) => setPublishAnonymously(e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        disabled={!anonymousUploadAvailable}
+                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                       Publish anonymously
+                      {!anonymousUploadAvailable && (
+                        <span className="text-xs">(not available in this deployment)</span>
+                      )}
                     </label>
                     {publishAnonymously && (
                       <div

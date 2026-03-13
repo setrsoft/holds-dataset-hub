@@ -1,7 +1,7 @@
 import { commit, whoAmI } from '@huggingface/hub'
 
-import { HF_ANONYMOUS_REPO_ID, HF_DATASET_REPO_ID, HF_REVISION } from './env'
-import type { GlobalIndex, UploadHoldParams, UploadHoldResult } from '../types/registry'
+import { ANONYMOUS_UPLOAD_URL, HF_ANONYMOUS_REPO_ID, HF_DATASET_REPO_ID, HF_REVISION } from './env'
+import type { GlobalIndex, NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
 
 export const DEFAULT_DATASET_REPO_ID = HF_DATASET_REPO_ID
 export const ANONYMOUS_CONTRIBUTIONS_REPO_ID = HF_ANONYMOUS_REPO_ID
@@ -195,5 +195,53 @@ export async function uploadHold({
   return {
     holdId: hold.hold_id,
     commitUrl: result?.commit.url,
+  }
+}
+
+export async function uploadHoldAnonymous(hold: NewHoldMetadata): Promise<UploadHoldResult> {
+  if (!ANONYMOUS_UPLOAD_URL) {
+    throw new Error('Anonymous uploads are not configured for this deployment.')
+  }
+
+  const formData = new FormData()
+  formData.append('hold_id', hold.hold_id)
+  formData.append('id', String(hold.id))
+  formData.append('manufacturer', hold.manufacturer)
+  formData.append('model', hold.model)
+  formData.append('type', hold.type)
+  formData.append('size', hold.size)
+  formData.append('labels', JSON.stringify(hold.labels))
+  formData.append('created_at', String(hold.created_at))
+  formData.append('last_update', String(hold.last_update))
+  formData.append('timezone_offset', hold.timezone_offset)
+  formData.append('color_of_scan', hold.color_of_scan)
+  formData.append('available_colors', JSON.stringify(hold.available_colors))
+  if (hold.note) {
+    formData.append('note', hold.note)
+  }
+  for (const file of hold.uploadFiles) {
+    formData.append('files[]', file)
+  }
+
+  const response = await fetch(ANONYMOUS_UPLOAD_URL, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    let detail = `Upload failed (${response.status})`
+    try {
+      const json = (await response.json()) as { detail?: string }
+      if (json.detail) detail = json.detail
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(detail)
+  }
+
+  const data = (await response.json()) as { commit_url?: string }
+  return {
+    holdId: hold.hold_id,
+    commitUrl: data.commit_url,
   }
 }
