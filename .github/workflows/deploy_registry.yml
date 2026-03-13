@@ -16,6 +16,9 @@ on:
       - "public/**"
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   pages: write
@@ -49,12 +52,13 @@ jobs:
       - name: Build application
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # Optional: set repo secrets to override defaults (e.g. VITE_HF_DATASET_REPO_ID, VITE_HF_REVISION, VITE_BASE_PATH, VITE_HF_ANONYMOUS_REPO_ID)
+          # Base path for GitHub Pages. Must match the site subpath (e.g. /holds-dataset-hub/). Override with secret if needed.
+          VITE_BASE_PATH: ${{ secrets.VITE_BASE_PATH || '/holds-dataset-hub/' }}
+          # Optional: set repo secrets to override other defaults
           VITE_HF_DATASET_REPO_ID: ${{ secrets.VITE_HF_DATASET_REPO_ID }}
           VITE_HF_REVISION: ${{ secrets.VITE_HF_REVISION }}
           VITE_HF_ANONYMOUS_REPO_ID: ${{ secrets.VITE_HF_ANONYMOUS_REPO_ID }}
           VITE_HF_ANONYMOUS_TOKEN: ${{ secrets.VITE_HF_ANONYMOUS_TOKEN }}
-          VITE_BASE_PATH: ${{ secrets.VITE_BASE_PATH }}
           VITE_VOTE_WEBHOOK_URL: ${{ secrets.VITE_VOTE_WEBHOOK_URL }}
           VITE_VOTE_WEBHOOK_SECRET: ${{ secrets.VITE_VOTE_WEBHOOK_SECRET }}
         run: npm run build
