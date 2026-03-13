@@ -19,7 +19,6 @@ interface AddHoldDialogProps {
   nextNumericId: number
   nextHoldId: string
   repoId: string
-  revision: string
   creationOptions: CreationOptions
   onClose: () => void
   onUploaded: (payload: { message: string; commitUrl?: string }) => void
@@ -39,7 +38,6 @@ export function AddHoldDialog({
   nextNumericId,
   nextHoldId,
   repoId,
-  revision,
   creationOptions,
   onClose,
   onUploaded,
@@ -144,7 +142,6 @@ export function AddHoldDialog({
         }
         result = await uploadHold({
           repoId,
-          revision,
           accessToken: activeToken,
           hold: metadata,
         })

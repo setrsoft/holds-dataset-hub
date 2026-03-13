@@ -119,10 +119,11 @@ export async function validateAccessToken(accessToken: string) {
 
 export async function uploadHold({
   repoId,
-  revision,
   accessToken,
   hold,
 }: UploadHoldParams): Promise<UploadHoldResult> {
+  const { name: username } = await whoAmI({ accessToken })
+
   const pendingFolderId =
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
@@ -130,7 +131,9 @@ export async function uploadHold({
 
   const pendingPathPrefix = `pending/${pendingFolderId}`
 
-  const metadataBlob = new Blob([`${JSON.stringify(hold, null, 2)}\n`], {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { uploadFiles: _uploadFiles, ...holdMetadata } = hold
+  const metadataBlob = new Blob([`${JSON.stringify(holdMetadata, null, 2)}\n`], {
     type: 'application/json',
   })
 
@@ -166,13 +169,14 @@ export async function uploadHold({
 
   const result = await commit({
     accessToken,
-    branch: revision,
+    branch: 'staging',
+    isPullRequest: true,
     repo: {
       type: 'dataset',
       name: repoId,
     },
     title: `Add hold ${hold.hold_id}`,
-    description: `Add climbing hold ${hold.hold_id} (${hold.manufacturer} ${hold.model})`,
+    description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch for daily squash.`,
     useWebWorkers: true,
     operations: [
       {
@@ -194,7 +198,7 @@ export async function uploadHold({
 
   return {
     holdId: hold.hold_id,
-    commitUrl: result?.commit.url,
+    commitUrl: result?.pullRequestUrl,
   }
 }
 

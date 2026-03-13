@@ -122,7 +122,6 @@ export function AddHoldPage() {
         }
         result = await uploadHold({
           repoId,
-          revision,
           accessToken: activeToken,
           hold: metadata,
         })
@@ -203,7 +202,7 @@ export function AddHoldPage() {
                 className="mt-4 inline-flex items-center gap-2 font-medium underline"
               >
                 <ExternalLink className="h-4 w-4" />
-                Open Hugging Face commit
+                Open Pull Request
               </a>
             )}
           </div>

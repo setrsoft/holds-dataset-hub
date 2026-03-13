@@ -125,7 +125,6 @@ export interface NewHoldMetadata extends HoldRecord {
 
 export interface UploadHoldParams {
   repoId: string
-  revision: string
   accessToken: string
   hold: NewHoldMetadata
 }

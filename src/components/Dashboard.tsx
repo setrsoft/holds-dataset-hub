@@ -158,7 +158,7 @@ export function Dashboard() {
                 className="mt-2 inline-flex items-center gap-2 font-medium underline"
               >
                 <ExternalLink className="h-4 w-4" />
-                Open Hugging Face commit
+                Open Pull Request
               </a>
             )}
           </section>
@@ -225,7 +225,6 @@ export function Dashboard() {
           nextNumericId={data.nextNumericId}
           nextHoldId={data.nextHoldId}
           repoId={repoId}
-          revision={revision}
           creationOptions={creationOptions}
           onClose={() => setIsAddDialogOpen(false)}
           onUploaded={(payload) => {
