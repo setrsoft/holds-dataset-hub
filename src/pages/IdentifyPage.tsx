@@ -134,7 +134,7 @@ export function IdentifyPage() {
         setReplaceStoredToken(false)
       }
 
-      setSubmitMessage('Vote enregistré.')
+      setSubmitMessage('Vote submitted.')
       setManufacturer('')
       setModel('')
       setHold3dFileRating(0)
