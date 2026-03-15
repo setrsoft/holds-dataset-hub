@@ -43,17 +43,45 @@ export async function getFilesFromDataTransfer(dataTransfer: DataTransfer): Prom
     return files
   }
 
-  async function collectFromEntry(
-    entry: FileSystemEntry,
-    path = ''
-  ): Promise<void> {
+  const getEntry = (item: DataTransferItem): FileSystemEntry | null =>
+    (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.() ?? null
+
+  // Read all entries synchronously before any await (DataTransfer can be cleared after drop).
+  const entries: { entry: FileSystemEntry; file?: File }[] = []
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const entry = getEntry(item)
+    if (entry) {
+      if (entry.isFile) {
+        const file = item.getAsFile()
+        if (file) entries.push({ entry, file })
+        else entries.push({ entry })
+      } else {
+        entries.push({ entry })
+      }
+    } else {
+      const file = item.getAsFile()
+      if (file) files.push(file)
+    }
+  }
+
+  async function collectFromEntry(entry: FileSystemEntry, path = ''): Promise<void> {
     if (entry.isFile) {
       const file = await new Promise<File>((resolve, reject) => {
         (entry as FileSystemFileEntry).file(resolve, reject)
       })
-      const f = file as File & { webkitRelativePath?: string }
-      f.webkitRelativePath = path ? `${path}/${file.name}` : file.name
-      files.push(file)
+      // webkitRelativePath is read-only on File; wrap in Proxy so upload code can read the path.
+      // Bind methods to target to avoid "Illegal invocation" when FormData/fetch call file.slice() etc.
+      const relativePath = path ? `${path}/${file.name}` : file.name
+      const fileWithPath = new Proxy(file, {
+        get(target, prop) {
+          if (prop === 'webkitRelativePath') return relativePath
+          const value = Reflect.get(target, prop)
+          if (typeof value === 'function') return value.bind(target)
+          return value
+        },
+      }) as File
+      files.push(fileWithPath)
       return
     }
     if (entry.isDirectory) {
@@ -70,20 +98,19 @@ export async function getFilesFromDataTransfer(dataTransfer: DataTransfer): Prom
     }
   }
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i]
-    const file = item.getAsFile()
-    if (file) {
-      const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.()
-      if (entry?.isDirectory) {
-        await collectFromEntry(entry)
-      } else {
-        files.push(file)
-      }
+  for (const { entry, file } of entries) {
+    if (entry.isDirectory) {
+      await collectFromEntry(entry)
+    } else if (file) {
+      files.push(file)
     } else {
-      const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.()
-      if (entry) await collectFromEntry(entry)
+      await collectFromEntry(entry)
     }
+  }
+
+  // Fallback: some environments expose dropped folder files in dataTransfer.files
+  if (files.length === 0 && dataTransfer.files.length > 0) {
+    for (let i = 0; i < dataTransfer.files.length; i++) files.push(dataTransfer.files[i])
   }
   return files
 }
@@ -432,8 +459,13 @@ export function AddHoldDialog({
                       e.preventDefault()
                       e.stopPropagation()
                       setIsDragging(false)
-                      const transferred = await getFilesFromDataTransfer(e.dataTransfer)
-                      if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                      setError(null)
+                      try {
+                        const transferred = await getFilesFromDataTransfer(e.dataTransfer)
+                        if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Failed to read dropped files or folder.')
+                      }
                     }}
                     onClick={() => {
                       fileInputRef.current?.click()
@@ -473,14 +505,6 @@ export function AddHoldDialog({
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
-                <h3 className="font-semibold">Indexing note</h3>
-                <p className="mt-2">
-                  Uploading creates the files in the dataset immediately, but the card
-                  will only appear in the gallery after the next regeneration of
-                  `global_index.json`.
-                </p>
-              </section>
 
               {files.length > 0 && (
                 <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">

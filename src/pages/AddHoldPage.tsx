@@ -430,8 +430,13 @@ export function AddHoldPage() {
                         e.preventDefault()
                         e.stopPropagation()
                         setIsDragging(false)
-                        const transferred = await getFilesFromDataTransfer(e.dataTransfer)
-                        if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                        setFormError(null)
+                        try {
+                          const transferred = await getFilesFromDataTransfer(e.dataTransfer)
+                          if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                        } catch (err) {
+                          setFormError(err instanceof Error ? err.message : 'Failed to read dropped files or folder.')
+                        }
                       }}
                       onClick={() => fileInputRef.current?.click()}
                       onKeyDown={(e) => {
@@ -470,14 +475,6 @@ export function AddHoldPage() {
               </div>
 
               <div className="space-y-6">
-                <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
-                  <h3 className="font-semibold">Indexing note</h3>
-                  <p className="mt-2">
-                    Uploading creates the files in the dataset immediately, but
-                    the card will only appear in the gallery after the next
-                    regeneration of `global_index.json`.
-                  </p>
-                </section>
                 {files.length > 0 && (
                   <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">

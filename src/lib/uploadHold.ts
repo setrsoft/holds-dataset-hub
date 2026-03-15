@@ -3,6 +3,40 @@ import { commit, whoAmI } from '@huggingface/hub'
 import { ANONYMOUS_UPLOAD_URL } from './env'
 import type { NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
 
+function sanitizeSegment(segment: string): string {
+  return segment.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function sanitizeFileName(name: string): string {
+  const withoutPath = name.split(/[/\\]/).pop() ?? name
+  return sanitizeSegment(withoutPath)
+}
+
+/**
+ * Returns a repo-safe relative path for the file.
+ * When the file comes from a directory picker (webkitRelativePath), preserves
+ * the folder structure; otherwise uses the file name only (flat).
+ */
+export function getFileRelativePath(file: File): string {
+  const raw =
+    typeof (file as File & { webkitRelativePath?: string }).webkitRelativePath ===
+    'string'
+      ? (file as File & { webkitRelativePath: string }).webkitRelativePath
+      : ''
+  if (!raw.trim()) {
+    return sanitizeFileName(file.name)
+  }
+  const segments = raw
+    .split(/[/\\]/)
+    .filter((s) => s.length > 0 && s !== '.' && s !== '..')
+    .map(sanitizeSegment)
+    .filter(Boolean)
+  if (segments.length === 0) {
+    return sanitizeFileName(file.name)
+  }
+  return segments.join('/')
+}
+
 export async function uploadHold({
   repoId,
   accessToken,
@@ -24,40 +58,6 @@ export async function uploadHold({
   })
 
   const usedPaths = new Set<string>()
-
-  function sanitizeSegment(segment: string): string {
-    return segment.replace(/[^a-zA-Z0-9._-]/g, '_')
-  }
-
-  function sanitizeFileName(name: string): string {
-    const withoutPath = name.split(/[/\\]/).pop() ?? name
-    return sanitizeSegment(withoutPath)
-  }
-
-  /**
-   * Returns a repo-safe relative path for the file.
-   * When the file comes from a directory picker (webkitRelativePath), preserves
-   * the folder structure; otherwise uses the file name only (flat).
-   */
-  function getFileRelativePath(file: File): string {
-    const raw =
-      typeof (file as File & { webkitRelativePath?: string }).webkitRelativePath ===
-      'string'
-        ? (file as File & { webkitRelativePath: string }).webkitRelativePath
-        : ''
-    if (!raw.trim()) {
-      return sanitizeFileName(file.name)
-    }
-    const segments = raw
-      .split(/[/\\]/)
-      .filter((s) => s.length > 0 && s !== '.' && s !== '..')
-      .map(sanitizeSegment)
-      .filter(Boolean)
-    if (segments.length === 0) {
-      return sanitizeFileName(file.name)
-    }
-    return segments.join('/')
-  }
 
   function getUniquePath(basePath: string): string {
     if (!usedPaths.has(basePath)) {
@@ -141,7 +141,8 @@ export async function uploadHoldAnonymous(
     formData.append('note', hold.note)
   }
   for (const file of hold.uploadFiles) {
-    formData.append('files[]', file)
+    const path = getFileRelativePath(file)
+    formData.append('files', file, path)
   }
 
   const response = await fetch(ANONYMOUS_UPLOAD_URL, {
