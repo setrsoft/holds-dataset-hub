@@ -1,4 +1,4 @@
-import { ExternalLink, LoaderCircle, Upload } from 'lucide-react'
+import { ExternalLink, LoaderCircle, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -68,6 +68,12 @@ export function AddHoldPage() {
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
   const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
   const anonymousUploadAvailable = ANONYMOUS_UPLOAD_URL.length > 0
+
+  function handleClearFiles() {
+    setFiles([])
+    setFormError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -477,9 +483,20 @@ export function AddHoldPage() {
               <div className="space-y-6">
                 {files.length > 0 && (
                   <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                      Selected files
-                    </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                        Selected files
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={handleClearFiles}
+                        disabled={isUploading}
+                        className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Clear all
+                      </button>
+                    </div>
                     <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
                       {files.map((file, i) => {
                         const path =
