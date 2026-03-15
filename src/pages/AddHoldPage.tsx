@@ -1,5 +1,5 @@
 import { ExternalLink, LoaderCircle, Upload } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import {
@@ -13,7 +13,7 @@ import {
 import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 import { useRegistry } from '../hooks/useRegistry'
-import { SelectWithOther } from '../components/AddHoldDialog'
+import { getFilesFromDataTransfer, SelectWithOther } from '../components/AddHoldDialog'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
@@ -43,6 +43,8 @@ export function AddHoldPage() {
   const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadSuccess, setUploadSuccess] = useState<{
     message: string
     commitUrl?: string
@@ -402,22 +404,67 @@ export function AddHoldPage() {
                   <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                     Files
                   </h3>
-                  <label className="mt-4 block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <div className="mt-4 space-y-3">
+                    <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                       Assets
                     </span>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                        isDragging
+                          ? 'border-sky-400 bg-sky-500/10 dark:border-sky-500 dark:bg-sky-500/20'
+                          : 'border-slate-300/80 bg-white hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600'
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsDragging(true)
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsDragging(false)
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsDragging(false)
+                        const transferred = await getFilesFromDataTransfer(e.dataTransfer)
+                        if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          fileInputRef.current?.click()
+                        }
+                      }}
+                    >
+                      <Upload className="h-8 w-8 text-slate-500 dark:text-slate-400" />
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Drop files or a folder here, or click to browse
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Any type, including compressed archives
+                      </span>
+                    </div>
                     <input
+                      ref={fileInputRef}
                       type="file"
                       multiple
-                      onChange={(e) =>
-                        setFiles(Array.from(e.target.files ?? []))
-                      }
-                      className="w-full rounded-2xl border border-dashed border-slate-300/80 bg-white px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.files ?? [])
+                        setFiles((prev) => [...prev, ...selected])
+                        e.target.value = ''
+                      }}
                     />
-                  </label>
+                  </div>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     The Hugging Face commit will automatically handle large file
-                    uploads and switching to LFS if needed.
+                    uploads and switching to LFS if needed. Folder structure is
+                    preserved.
                   </p>
                 </section>
               </div>
@@ -437,14 +484,19 @@ export function AddHoldPage() {
                       Selected files
                     </h3>
                     <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
-                      {files.map((file) => (
-                        <li key={file.name}>
-                          {file.name}{' '}
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB
-                          </span>
-                        </li>
-                      ))}
+                      {files.map((file, i) => {
+                        const path =
+                          (file as File & { webkitRelativePath?: string })
+                            .webkitRelativePath || file.name
+                        return (
+                          <li key={`${path}-${i}`}>
+                            {path}{' '}
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                          </li>
+                        )
+                      })}
                     </ul>
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                       Total size:{' '}

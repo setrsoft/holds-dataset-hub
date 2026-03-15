@@ -1,5 +1,5 @@
 import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   clearAccessToken,
@@ -33,6 +33,61 @@ function getTimezoneOffsetLabel(date: Date) {
   return `${sign}${hours}:${mins}`
 }
 
+/** Collect all files from a DataTransfer (files and recursive directory contents). */
+export async function getFilesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
+  const files: File[] = []
+  const items = dataTransfer.items
+  if (!items) {
+    const dtFiles = dataTransfer.files
+    if (dtFiles) for (let i = 0; i < dtFiles.length; i++) files.push(dtFiles[i])
+    return files
+  }
+
+  async function collectFromEntry(
+    entry: FileSystemEntry,
+    path = ''
+  ): Promise<void> {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => {
+        (entry as FileSystemFileEntry).file(resolve, reject)
+      })
+      const f = file as File & { webkitRelativePath?: string }
+      f.webkitRelativePath = path ? `${path}/${file.name}` : file.name
+      files.push(file)
+      return
+    }
+    if (entry.isDirectory) {
+      const dir = entry as FileSystemDirectoryEntry
+      const reader = dir.createReader()
+      const base = path ? `${path}/${dir.name}` : dir.name
+      let batch: FileSystemEntry[]
+      do {
+        batch = await new Promise((resolve, reject) => {
+          reader.readEntries(resolve, reject)
+        })
+        for (const e of batch) await collectFromEntry(e, base)
+      } while (batch.length > 0)
+    }
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const file = item.getAsFile()
+    if (file) {
+      const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.()
+      if (entry?.isDirectory) {
+        await collectFromEntry(entry)
+      } else {
+        files.push(file)
+      }
+    } else {
+      const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.()
+      if (entry) await collectFromEntry(entry)
+    }
+  }
+  return files
+}
+
 export function AddHoldDialog({
   open,
   nextNumericId,
@@ -56,6 +111,8 @@ export function AddHoldDialog({
   const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) {
@@ -349,23 +406,68 @@ export function AddHoldDialog({
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                   Files
                 </h3>
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <div className="mt-4 space-y-3">
+                  <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Assets
                   </span>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                      isDragging
+                        ? 'border-sky-400 bg-sky-500/10 dark:border-sky-500 dark:bg-sky-500/20'
+                        : 'border-slate-300/80 bg-white hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600'
+                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(true)
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(false)
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(false)
+                      const transferred = await getFilesFromDataTransfer(e.dataTransfer)
+                      if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                    }}
+                    onClick={() => {
+                      fileInputRef.current?.click()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        fileInputRef.current?.click()
+                      }
+                    }}
+                  >
+                    <Upload className="h-8 w-8 text-slate-500 dark:text-slate-400" />
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Drop files or a folder here, or click to browse
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Any type, including compressed archives
+                    </span>
+                  </div>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
+                    className="sr-only"
                     onChange={(event) => {
-                      const selectedFiles = Array.from(event.target.files ?? [])
-                      setFiles(selectedFiles)
+                      const selected = Array.from(event.target.files ?? [])
+                      setFiles((prev) => [...prev, ...selected])
+                      event.target.value = ''
                     }}
-                    className="w-full rounded-2xl border border-dashed border-slate-300/80 bg-white px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                   />
-                </label>
+                </div>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                   The Hugging Face commit will automatically handle large file uploads
-                  and switching to LFS if needed.
+                  and switching to LFS if needed. Folder structure is preserved.
                 </p>
               </section>
             </div>
@@ -386,14 +488,19 @@ export function AddHoldDialog({
                     Selected files
                   </h3>
                   <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
-                    {files.map((file) => (
-                      <li key={file.name}>
-                        {file.name}{' '}
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                      </li>
-                    ))}
+                    {files.map((file, i) => {
+                      const path =
+                        (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+                        file.name
+                      return (
+                        <li key={`${path}-${i}`}>
+                          {path}{' '}
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        </li>
+                      )
+                    })}
                   </ul>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     Total size:{' '}
