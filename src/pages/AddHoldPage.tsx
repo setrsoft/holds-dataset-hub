@@ -13,7 +13,8 @@ import {
 import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 import { useRegistry } from '../hooks/useRegistry'
-import { getFilesFromDataTransfer, SelectWithOther } from '../components/AddHoldDialog'
+import { SelectWithOther } from '../components/AddHoldDialog'
+import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
