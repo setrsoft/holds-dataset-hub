@@ -43,6 +43,16 @@ export function buildPrimaryAssetUrl(repoId: string, revision: string, holdId: s
   return `${HUGGING_FACE_BASE_URL}/datasets/${repoId}/resolve/${revision}/${holdId}/hold.glb`
 }
 
+/** Hex filename key for `360/{key}.png` (no leading `#`, lowercase). */
+export function buildHold360SpriteUrl(
+  repoId: string,
+  revision: string,
+  holdId: string,
+  colorHexKey: string,
+) {
+  return `${HUGGING_FACE_BASE_URL}/datasets/${repoId}/resolve/${revision}/${holdId}/360/${colorHexKey}.png`
+}
+
 export async function fetchGlobalIndex(
   repoId: string = DEFAULT_DATASET_REPO_ID,
   revision: string = DEFAULT_REVISION,

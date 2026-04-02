@@ -1,11 +1,10 @@
 import { LoaderCircle, ScanSearch, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState, Suspense } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls, useGLTF } from '@react-three/drei'
 
 import { useRegistry } from '../hooks/useRegistry'
 import { SelectWithOther } from '../components/AddHoldDialog'
+import { HoldGlbViewer } from '../components/HoldGlbViewer'
 import { StarRating } from '../components/StarRating'
 import {
   clearAccessToken,
@@ -232,7 +231,7 @@ export function IdentifyPage() {
 
           <div className="p-6">
             <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-900">
-              <HoldViewer glbUrl={currentHold!.links.primaryAssetUrl} />
+              <HoldGlbViewer glbUrl={currentHold!.links.primaryAssetUrl} />
             </div>
 
             <div className="mt-6">
@@ -360,45 +359,4 @@ export function IdentifyPage() {
       </div>
     </main>
   )
-}
-
-interface HoldViewerProps {
-  glbUrl: string
-}
-
-function HoldViewer({ glbUrl }: HoldViewerProps) {
-  return (
-    <div className="h-full w-full">
-      <Canvas
-        camera={{ position: [2, 2, 2], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[5, 5, 5]} intensity={1} />
-        <Suspense
-          fallback={
-            <mesh>
-              <boxGeometry args={[0.5, 0.5, 0.5]} />
-              <meshStandardMaterial color="#64748b" />
-            </mesh>
-          }
-        >
-          <HoldModel glbUrl={glbUrl} />
-        </Suspense>
-        <OrbitControls
-          enablePan
-          enableZoom
-          enableRotate
-          minDistance={0.5}
-          maxDistance={10}
-        />
-      </Canvas>
-    </div>
-  )
-}
-
-function HoldModel({ glbUrl }: { glbUrl: string }) {
-  const { scene } = useGLTF(glbUrl)
-  const cloned = useMemo(() => scene.clone(), [scene])
-  return <primitive object={cloned} />
 }

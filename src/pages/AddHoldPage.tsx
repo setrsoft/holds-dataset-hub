@@ -28,7 +28,7 @@ function getTimezoneOffsetLabel(date: Date) {
 }
 
 export function AddHoldPage() {
-  const { data, error, isLoading, refresh, repoId, revision } = useRegistry()
+  const { data, error, isLoading, refresh, repoId } = useRegistry()
 
   const [storedToken, setStoredToken] = useState(() => getStoredAccessToken())
   const [tokenInput, setTokenInput] = useState('')
