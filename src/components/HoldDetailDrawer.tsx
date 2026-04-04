@@ -2,6 +2,7 @@ import { ExternalLink, FileJson, X } from 'lucide-react'
 
 import { formatUnixTimestamp } from '../lib/registry'
 import { AttentionBadge } from './AttentionBadge'
+import { HoldGlbViewer } from './HoldGlbViewer'
 
 import type { DerivedHold } from '../types/registry'
 
@@ -58,6 +59,13 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
             </span>
           )}
         </div>
+
+        <section
+          className="mt-6 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-slate-200/80 dark:ring-slate-700"
+          aria-label="3D hold preview"
+        >
+          <HoldGlbViewer key={hold.hold_id} glbUrl={hold.links.primaryAssetUrl} />
+        </section>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <DetailItem label="Numeric ID" value={String(hold.id)} />

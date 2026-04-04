@@ -9,6 +9,7 @@ import {
 
 import { formatUnixTimestamp, normalizeReferenceValue } from '../lib/registry'
 import { AttentionBadge } from './AttentionBadge'
+import { Hold360Preview } from './Hold360Preview'
 
 import type { DerivedHold } from '../types/registry'
 
@@ -45,19 +46,25 @@ export function HoldCard({ hold, onSelect }: HoldCardProps) {
           : 'border-slate-200/80 bg-white/85 dark:border-slate-800 dark:bg-slate-900/80'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            Hold {hold.hold_id}
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
-            {hold.manufacturer ?? 'unknown'} / {hold.model ?? 'unknown'}
-          </h3>
-        </div>
-        <span className="inline-flex rounded-2xl border border-slate-300/70 p-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+          Hold {hold.hold_id}
+        </p>
+        <span className="inline-flex shrink-0 rounded-2xl border border-slate-300/70 p-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">
           {renderTypeIcon(hold.type)}
         </span>
       </div>
+
+      <div className="mt-3 flex w-full justify-center">
+        <Hold360Preview
+          spriteSheetUrl={hold.links.hold360SpriteUrl}
+          className="h-44 w-44 max-h-[min(100%,11rem)] max-w-[min(100%,11rem)] shadow-md sm:h-52 sm:w-52 sm:max-h-[13rem] sm:max-w-[13rem]"
+        />
+      </div>
+
+      <h3 className="mt-3 text-center text-lg font-semibold text-slate-950 dark:text-white">
+        {hold.manufacturer ?? 'unknown'} / {hold.model ?? 'unknown'}
+      </h3>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
         <span className="rounded-full bg-slate-900/5 px-3 py-1 dark:bg-white/5">

@@ -1,5 +1,6 @@
 import {
   buildDatasetTreeUrl,
+  buildHold360SpriteUrl,
   buildMetadataUrl,
   buildPrimaryAssetUrl,
 } from './hf'
@@ -34,6 +35,37 @@ export function normalizeReferenceValue(value: unknown) {
 
 export function formatHoldId(id: number) {
   return String(id).padStart(10, '0')
+}
+
+/** Normalize metadata color to a 6-digit hex key used in `360/{key}.png`. */
+export function resolveHold360ColorKey(hold: HoldRecord): string | null {
+  const normalize = (raw: string): string | null => {
+    const s = raw.trim().replace(/^#/, '').toLowerCase()
+    if (/^[0-9a-f]{6}$/.test(s)) {
+      return s
+    }
+    if (/^[0-9a-f]{3}$/.test(s)) {
+      return s
+        .split('')
+        .map((c) => c + c)
+        .join('')
+    }
+    return null
+  }
+
+  const fromScan = hold.color_of_scan ? normalize(hold.color_of_scan) : null
+  if (fromScan) {
+    return fromScan
+  }
+
+  for (const c of hold.available_colors ?? []) {
+    const key = normalize(c)
+    if (key) {
+      return key
+    }
+  }
+
+  return null
 }
 
 export function getNextHoldNumericId(index: GlobalIndex) {
@@ -88,6 +120,8 @@ export function buildRegistryView(
   const derivedHolds: DerivedHold[] = index.holds.map((hold) => {
     const attentionReasons = collectAttentionReasons(hold.hold_id, index.needs_attention)
 
+    const color360Key = resolveHold360ColorKey(hold)
+
     return {
       ...hold,
       status: attentionReasons.length > 0 ? 'needs_attention' : 'ready',
@@ -98,6 +132,9 @@ export function buildRegistryView(
         hubFolderUrl: buildDatasetTreeUrl(repoId, revision, hold.hold_id),
         metadataUrl: buildMetadataUrl(repoId, revision, hold.hold_id),
         primaryAssetUrl: buildPrimaryAssetUrl(repoId, revision, hold.hold_id),
+        hold360SpriteUrl: color360Key
+          ? buildHold360SpriteUrl(repoId, revision, hold.hold_id, color360Key)
+          : null,
       },
     }
   })

@@ -1,5 +1,5 @@
 import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   clearAccessToken,
@@ -10,6 +10,7 @@ import {
   validateAccessToken,
 } from '../lib/hf'
 import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
+import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
 import { parseCommaSeparatedValues } from '../lib/registry'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
@@ -56,6 +57,8 @@ export function AddHoldDialog({
   const [publishAnonymously, setPublishAnonymously] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) {
@@ -78,6 +81,12 @@ export function AddHoldDialog({
   const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
   const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
   const anonymousUploadAvailable = ANONYMOUS_UPLOAD_URL.length > 0
+
+  function handleClearFiles() {
+    setFiles([])
+    setError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   if (!open) {
     return null
@@ -188,6 +197,80 @@ export function AddHoldDialog({
         <form onSubmit={handleSubmit} className="max-h-[85vh] overflow-y-auto px-6 py-5">
           <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
             <div className="space-y-6">
+              <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Files
+                </h3>
+                <div className="mt-4 space-y-3">
+                  <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Assets
+                  </span>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                      isDragging
+                        ? 'border-sky-400 bg-sky-500/10 dark:border-sky-500 dark:bg-sky-500/20'
+                        : 'border-slate-300/80 bg-white hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600'
+                    }`}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(true)
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(false)
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDragging(false)
+                      setError(null)
+                      try {
+                        const transferred = await getFilesFromDataTransfer(e.dataTransfer)
+                        if (transferred.length) setFiles((prev) => [...prev, ...transferred])
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Failed to read dropped files or folder.')
+                      }
+                    }}
+                    onClick={() => {
+                      fileInputRef.current?.click()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        fileInputRef.current?.click()
+                      }
+                    }}
+                  >
+                    <Upload className="h-8 w-8 text-slate-500 dark:text-slate-400" />
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      Drop files or a folder here, or click to browse
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Any type, including compressed archives
+                    </span>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="sr-only"
+                    onChange={(event) => {
+                      const selected = Array.from(event.target.files ?? [])
+                      setFiles((prev) => [...prev, ...selected])
+                      event.target.value = ''
+                    }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  The Hugging Face commit will automatically handle large file uploads
+                  and switching to LFS if needed. Folder structure is preserved.
+                </p>
+              </section>
+
               <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                   Hugging Face
@@ -344,56 +427,40 @@ export function AddHoldDialog({
                   />
                 </label>
               </section>
-
-              <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                  Files
-                </h3>
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Assets
-                  </span>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(event) => {
-                      const selectedFiles = Array.from(event.target.files ?? [])
-                      setFiles(selectedFiles)
-                    }}
-                    className="w-full rounded-2xl border border-dashed border-slate-300/80 bg-white px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
-                  />
-                </label>
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  The Hugging Face commit will automatically handle large file uploads
-                  and switching to LFS if needed.
-                </p>
-              </section>
             </div>
 
             <div className="space-y-6">
-              <section className="rounded-3xl border border-sky-400/20 bg-sky-500/10 p-5 text-sm text-sky-900 dark:text-sky-200">
-                <h3 className="font-semibold">Indexing note</h3>
-                <p className="mt-2">
-                  Uploading creates the files in the dataset immediately, but the card
-                  will only appear in the gallery after the next regeneration of
-                  `global_index.json`.
-                </p>
-              </section>
 
               {files.length > 0 && (
                 <section className="rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Selected files
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      Selected files
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={handleClearFiles}
+                      disabled={isUploading}
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Clear all
+                    </button>
+                  </div>
                   <ul className="mt-3 space-y-1 text-sm text-slate-900 dark:text-slate-100">
-                    {files.map((file) => (
-                      <li key={file.name}>
-                        {file.name}{' '}
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                      </li>
-                    ))}
+                    {files.map((file, i) => {
+                      const path =
+                        (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+                        file.name
+                      return (
+                        <li key={`${path}-${i}`}>
+                          {path}{' '}
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        </li>
+                      )
+                    })}
                   </ul>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     Total size:{' '}
