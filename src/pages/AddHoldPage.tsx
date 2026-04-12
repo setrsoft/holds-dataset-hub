@@ -1,20 +1,14 @@
-import { ExternalLink, LoaderCircle, Trash2, Upload } from 'lucide-react'
+import { ExternalLink, LoaderCircle, LogOut, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import {
-  clearAccessToken,
-  getStoredAccessToken,
-  saveAccessToken,
-  uploadHold,
-  uploadHoldAnonymous,
-  validateAccessToken,
-} from '../lib/hf'
-import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
+import { uploadHold, uploadHoldAnonymous } from '../lib/hf'
+import { ANONYMOUS_UPLOAD_URL, HF_OAUTH_CLIENT_ID } from '../lib/env'
 import { parseCommaSeparatedValues } from '../lib/registry'
 import { useRegistry } from '../hooks/useRegistry'
-import { SelectWithOther } from '../components/AddHoldDialog'
+import { HuggingFaceLogo, SelectWithOther } from '../components/AddHoldDialog'
 import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
+import { useAuth } from '../contexts/AuthContext'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
@@ -30,10 +24,7 @@ function getTimezoneOffsetLabel(date: Date) {
 export function AddHoldPage() {
   const { data, error, isLoading, refresh, repoId } = useRegistry()
 
-  const [storedToken, setStoredToken] = useState(() => getStoredAccessToken())
-  const [tokenInput, setTokenInput] = useState('')
-  const [rememberToken, setRememberToken] = useState(true)
-  const [replaceStoredToken, setReplaceStoredToken] = useState(false)
+  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
   const [manufacturer, setManufacturer] = useState('')
   const [model, setModel] = useState('')
   const [holdType, setHoldType] = useState('')
@@ -60,14 +51,11 @@ export function AddHoldPage() {
     setSize('')
     setLabels('')
     setContributionNote('')
-    setStoredToken(getStoredAccessToken())
-    setReplaceStoredToken(false)
     setPublishAnonymously(false)
     setUploadSuccess(null)
   }, [data?.nextHoldId])
 
-  const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
-  const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
+  const activeToken = oauthResult?.accessToken ?? ''
   const anonymousUploadAvailable = ANONYMOUS_UPLOAD_URL.length > 0
 
   function handleClearFiles() {
@@ -81,8 +69,8 @@ export function AddHoldPage() {
     setFormError(null)
     if (!data) return
 
-    if (!publishAnonymously && !activeToken) {
-      setFormError('A Hugging Face token is required to upload a new hold.')
+    if (!publishAnonymously && !oauthResult) {
+      setFormError('Please log in with Hugging Face to upload a hold.')
       return
     }
     if (!manufacturer.trim() || !model.trim() || !holdType.trim() || !size.trim()) {
@@ -124,11 +112,6 @@ export function AddHoldPage() {
       if (publishAnonymously) {
         result = await uploadHoldAnonymous(metadata)
       } else {
-        await validateAccessToken(activeToken)
-        if (!hasStoredToken && rememberToken && activeToken) {
-          saveAccessToken(activeToken)
-          setStoredToken(activeToken)
-        }
         result = await uploadHold({
           repoId,
           accessToken: activeToken,
@@ -294,54 +277,47 @@ export function AddHoldPage() {
                         </p>
                       </div>
                     )}
-                    {!publishAnonymously && (
+                    {!publishAnonymously && HF_OAUTH_CLIENT_ID && (
                       <>
-                        {hasStoredToken ? (
-                          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                            Hugging Face token is already saved locally.
-                            <div className="mt-3 flex flex-wrap gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setReplaceStoredToken(true)}
-                                className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
-                              >
-                                Replace
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  clearAccessToken()
-                                  setStoredToken('')
-                                  setReplaceStoredToken(true)
-                                }}
-                                className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
-                              >
-                                Delete local token
-                              </button>
-                            </div>
+                        {oauthError && (
+                          <div
+                            role="alert"
+                            className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-300"
+                          >
+                            {oauthError}
+                          </div>
+                        )}
+                        {oauthResult ? (
+                          <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                            {oauthResult.userInfo.picture && (
+                              <img
+                                src={oauthResult.userInfo.picture}
+                                alt=""
+                                className="h-8 w-8 shrink-0 rounded-full"
+                              />
+                            )}
+                            <span className="flex-1 font-medium">
+                              {oauthResult.userInfo.preferred_username}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={logout}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10"
+                            >
+                              <LogOut className="h-3.5 w-3.5" />
+                              Log out
+                            </button>
                           </div>
                         ) : (
-                          <label className="block">
-                            <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                              Hugging Face token
-                            </span>
-                            <input
-                              type="text"
-                              value={tokenInput}
-                              onChange={(e) => setTokenInput(e.target.value)}
-                              placeholder="hf_..."
-                              className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            />
-                            <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                              <input
-                                type="checkbox"
-                                checked={rememberToken}
-                                onChange={(e) => setRememberToken(e.target.checked)}
-                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                              />
-                              Save this token in browser
-                            </label>
-                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void login()}
+                            disabled={authLoading}
+                            className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <HuggingFaceLogo />
+                            Login with Hugging Face
+                          </button>
                         )}
                       </>
                     )}

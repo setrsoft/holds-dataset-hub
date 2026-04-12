@@ -1,17 +1,11 @@
-import { ExternalLink, LoaderCircle, Trash2, Upload, X } from 'lucide-react'
+import { ExternalLink, LoaderCircle, LogOut, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import {
-  clearAccessToken,
-  getStoredAccessToken,
-  saveAccessToken,
-  uploadHold,
-  uploadHoldAnonymous,
-  validateAccessToken,
-} from '../lib/hf'
-import { ANONYMOUS_UPLOAD_URL } from '../lib/env'
+import { uploadHold, uploadHoldAnonymous } from '../lib/hf'
+import { ANONYMOUS_UPLOAD_URL, HF_OAUTH_CLIENT_ID } from '../lib/env'
 import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
 import { parseCommaSeparatedValues } from '../lib/registry'
+import { useAuth } from '../contexts/AuthContext'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 
@@ -43,10 +37,7 @@ export function AddHoldDialog({
   onClose,
   onUploaded,
 }: AddHoldDialogProps) {
-  const [storedToken, setStoredToken] = useState(() => getStoredAccessToken())
-  const [tokenInput, setTokenInput] = useState('')
-  const [rememberToken, setRememberToken] = useState(true)
-  const [replaceStoredToken, setReplaceStoredToken] = useState(false)
+  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
   const [manufacturer, setManufacturer] = useState('')
   const [model, setModel] = useState('')
   const [holdType, setHoldType] = useState('')
@@ -73,13 +64,10 @@ export function AddHoldDialog({
     setSize('')
     setLabels('')
     setContributionNote('')
-    setStoredToken(getStoredAccessToken())
-    setReplaceStoredToken(false)
     setPublishAnonymously(false)
   }, [open, nextHoldId])
 
-  const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
-  const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
+  const activeToken = oauthResult?.accessToken ?? ''
   const anonymousUploadAvailable = ANONYMOUS_UPLOAD_URL.length > 0
 
   function handleClearFiles() {
@@ -96,8 +84,8 @@ export function AddHoldDialog({
     event.preventDefault()
     setError(null)
 
-    if (!publishAnonymously && !activeToken) {
-      setError('A Hugging Face token is required to upload a new hold.')
+    if (!publishAnonymously && !oauthResult) {
+      setError('Please log in with Hugging Face to upload a hold.')
       return
     }
 
@@ -144,11 +132,6 @@ export function AddHoldDialog({
       if (publishAnonymously) {
         result = await uploadHoldAnonymous(metadata)
       } else {
-        await validateAccessToken(activeToken)
-        if (!hasStoredToken && rememberToken && activeToken) {
-          saveAccessToken(activeToken)
-          setStoredToken(activeToken)
-        }
         result = await uploadHold({
           repoId,
           accessToken: activeToken,
@@ -311,55 +294,47 @@ export function AddHoldDialog({
                       </p>
                     </div>
                   )}
-                  {!publishAnonymously && (
+                  {!publishAnonymously && HF_OAUTH_CLIENT_ID && (
                     <>
-                      {hasStoredToken ? (
-                        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                          Hugging Face token is already saved locally.
-                          <div className="mt-3 flex flex-wrap gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setReplaceStoredToken(true)}
-                              className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
-                            >
-                              Replace
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                clearAccessToken()
-                                setStoredToken('')
-                                setReplaceStoredToken(true)
-                              }}
-                              className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Delete local token
-                            </button>
-                          </div>
+                      {oauthError && (
+                        <div
+                          role="alert"
+                          className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-300"
+                        >
+                          {oauthError}
+                        </div>
+                      )}
+                      {oauthResult ? (
+                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                          {oauthResult.userInfo.picture && (
+                            <img
+                              src={oauthResult.userInfo.picture}
+                              alt=""
+                              className="h-8 w-8 shrink-0 rounded-full"
+                            />
+                          )}
+                          <span className="flex-1 font-medium">
+                            {oauthResult.userInfo.preferred_username}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={logout}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10"
+                          >
+                            <LogOut className="h-3.5 w-3.5" />
+                            Log out
+                          </button>
                         </div>
                       ) : (
-                        <label className="block">
-                          <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Hugging Face token
-                          </span>
-                          <input
-                            type="text"
-                            value={tokenInput}
-                            onChange={(event) => setTokenInput(event.target.value)}
-                            placeholder="hf_..."
-                            className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          />
-                          <label className="mt-3 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                            <input
-                              type="checkbox"
-                              checked={rememberToken}
-                              onChange={(event) => setRememberToken(event.target.checked)}
-                              className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                            />
-                            Save this token in browser
-                          </label>
-                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void login()}
+                          disabled={authLoading}
+                          className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <HuggingFaceLogo />
+                          Login with Hugging Face
+                        </button>
                       )}
                     </>
                   )}
@@ -509,6 +484,21 @@ export function AddHoldDialog({
         </form>
       </div>
     </div>
+  )
+}
+
+export function HuggingFaceLogo() {
+  return (
+    <svg viewBox="0 0 95 88" className="h-5 w-5 shrink-0" aria-hidden fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M47.2 0C21.15 0 0 19.74 0 44.1c0 24.36 21.15 44.1 47.2 44.1 26.06 0 47.2-19.74 47.2-44.1C94.4 19.74 73.26 0 47.2 0z" fill="#FFD21E"/>
+      <path d="M29.7 55.1c0 9.6 7.85 17.4 17.5 17.4s17.5-7.8 17.5-17.4H29.7z" fill="#FF9D0B"/>
+      <ellipse cx="30.9" cy="37.4" rx="7.2" ry="7.2" fill="#3A3B45"/>
+      <ellipse cx="63.5" cy="37.4" rx="7.2" ry="7.2" fill="#3A3B45"/>
+      <ellipse cx="28.8" cy="36.2" rx="2.5" ry="2.5" fill="white"/>
+      <ellipse cx="61.4" cy="36.2" rx="2.5" ry="2.5" fill="white"/>
+      <path d="M24.5 28c1.5-3.5 5-6 9-6M70 28c-1.5-3.5-5-6-9-6" stroke="#FF9D0B" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M38 19.5c0-1.7 1.35-3 3-3s3 1.3 3 3v5c0 1.7-1.35 3-3 3s-3-1.3-3-3v-5zM51 19.5c0-1.7 1.35-3 3-3s3 1.3 3 3v5c0 1.7-1.35 3-3 3s-3-1.3-3-3v-5z" fill="#FF9D0B"/>
+    </svg>
   )
 }
 

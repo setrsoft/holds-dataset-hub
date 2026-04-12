@@ -58,7 +58,6 @@ export interface HoldLinks {
   metadataUrl: string
   primaryAssetUrl: string
   datasetTreeUrl: string
-  /** Resolved sprite sheet in `360/{hex}.png` when a scan color is known */
   hold360SpriteUrl: string | null
 }
 

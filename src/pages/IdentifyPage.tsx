@@ -1,17 +1,13 @@
-import { LoaderCircle, ScanSearch, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { LoaderCircle, LogOut, ScanSearch } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useRegistry } from '../hooks/useRegistry'
-import { SelectWithOther } from '../components/AddHoldDialog'
+import { HuggingFaceLogo, SelectWithOther } from '../components/AddHoldDialog'
 import { HoldGlbViewer } from '../components/HoldGlbViewer'
 import { StarRating } from '../components/StarRating'
-import {
-  clearAccessToken,
-  getStoredAccessToken,
-  saveAccessToken,
-} from '../lib/hf'
-import { VOTE_WEBHOOK_URL, VOTE_WEBHOOK_SECRET } from '../lib/env'
+import { useAuth } from '../contexts/AuthContext'
+import { HF_OAUTH_CLIENT_ID, VOTE_WEBHOOK_URL, VOTE_WEBHOOK_SECRET } from '../lib/env'
 
 import type { DerivedHold } from '../types/registry'
 
@@ -50,25 +46,11 @@ export function IdentifyPage() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const [storedToken, setStoredToken] = useState(() => getStoredAccessToken())
-  const [tokenInput, setTokenInput] = useState('')
-  const [replaceStoredToken, setReplaceStoredToken] = useState(false)
-  const [rememberToken, setRememberToken] = useState(true)
-  const [voteAnonymously, setVoteAnonymously] = useState(
-    () => getStoredAccessToken().length === 0,
-  )
+  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
+  const [voteAnonymously, setVoteAnonymously] = useState(!HF_OAUTH_CLIENT_ID)
 
-  const hasStoredToken = storedToken.length > 0 && !replaceStoredToken
-  const activeToken = hasStoredToken ? storedToken : tokenInput.trim()
-  const isAnonymous = voteAnonymously || activeToken.length === 0
-
-  useEffect(() => {
-    const token = getStoredAccessToken()
-    setStoredToken(token)
-    if (token.length > 0) {
-      setVoteAnonymously(false)
-    }
-  }, [])
+  const activeToken = oauthResult?.accessToken ?? ''
+  const isAnonymous = voteAnonymously || !oauthResult
 
   const currentHold: DerivedHold | null =
     shuffledHolds.length > 0
@@ -94,8 +76,8 @@ export function IdentifyPage() {
     setSubmitError(null)
     setSubmitMessage(null)
     if (!currentHold || !manufacturer.trim() || !model.trim()) return
-    if (!voteAnonymously && activeToken.length === 0) {
-      setSubmitError('Enter a Hugging Face token or vote anonymously.')
+    if (!voteAnonymously && !oauthResult) {
+      setSubmitError('Please log in with Hugging Face or vote anonymously.')
       return
     }
 
@@ -125,12 +107,6 @@ export function IdentifyPage() {
       if (!response.ok) {
         const text = await response.text()
         throw new Error(text || `HTTP ${response.status}`)
-      }
-
-      if (rememberToken && activeToken.length > 0 && !voteAnonymously) {
-        saveAccessToken(activeToken)
-        setStoredToken(activeToken)
-        setReplaceStoredToken(false)
       }
 
       setSubmitMessage('Vote submitted.')
@@ -246,7 +222,51 @@ export function IdentifyPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-              <div className="rounded-2xl border border-slate-200/80 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200/80 p-4 dark:border-slate-800 space-y-4">
+                {HF_OAUTH_CLIENT_ID && (
+                  <>
+                    {oauthError && (
+                      <div
+                        role="alert"
+                        className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-800 dark:text-rose-300"
+                      >
+                        {oauthError}
+                      </div>
+                    )}
+                    {oauthResult ? (
+                      <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                        {oauthResult.userInfo.picture && (
+                          <img
+                            src={oauthResult.userInfo.picture}
+                            alt=""
+                            className="h-8 w-8 shrink-0 rounded-full"
+                          />
+                        )}
+                        <span className="flex-1 font-medium">
+                          {oauthResult.userInfo.preferred_username}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={logout}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                          Log out
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void login()}
+                        disabled={authLoading}
+                        className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <HuggingFaceLogo />
+                        Login with Hugging Face
+                      </button>
+                    )}
+                  </>
+                )}
                 <label className="flex cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
@@ -258,58 +278,6 @@ export function IdentifyPage() {
                     Vote anonymously
                   </span>
                 </label>
-                {!voteAnonymously && (
-                  <div className="mt-4 space-y-3">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Hugging Face token
-                    </p>
-                    {hasStoredToken ? (
-                      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                        Hugging Face token is already saved locally.
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setReplaceStoredToken(true)}
-                            className="rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium"
-                          >
-                            Replace
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              clearAccessToken()
-                              setStoredToken('')
-                              setReplaceStoredToken(true)
-                            }}
-                            className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete local token
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <input
-                          type="password"
-                          value={tokenInput}
-                          onChange={(e) => setTokenInput(e.target.value)}
-                          placeholder="hf_..."
-                          className="w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                        />
-                        <label className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={rememberToken}
-                            onChange={(e) => setRememberToken(e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                          />
-                          Save this token in browser
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
               <div className="grid gap-6 sm:grid-cols-2">
                 <SelectWithOther
@@ -347,7 +315,7 @@ export function IdentifyPage() {
                 disabled={
                   !manufacturer.trim() ||
                   !model.trim() ||
-                  (!voteAnonymously && activeToken.length === 0)
+                  (!voteAnonymously && !oauthResult)
                 }
                 className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400"
               >

@@ -35,3 +35,8 @@ export const ANONYMOUS_UPLOAD_URL = orDefault(
   import.meta.env.VITE_ANONYMOUS_UPLOAD_URL,
   '',
 )
+/** HuggingFace OAuth App client ID. Empty = OAuth login button disabled. */
+export const HF_OAUTH_CLIENT_ID = orDefault(
+  import.meta.env.VITE_HF_OAUTH_CLIENT_ID,
+  '',
+)
