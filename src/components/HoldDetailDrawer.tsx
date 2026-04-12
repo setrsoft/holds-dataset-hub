@@ -68,14 +68,14 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
         </section>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <DetailItem label="Numeric ID" value={String(hold.id)} />
+          <DetailItem label="Model" value={hold.model ?? fallbackValue} />
           <DetailItem label="Type" value={hold.type ?? fallbackValue} />
           <DetailItem label="Size" value={hold.size ?? fallbackValue} />
-          <DetailItem label="Timezone" value={hold.timezone_offset ?? fallbackValue} />
-          <DetailItem label="Created" value={formatUnixTimestamp(hold.created_at)} />
-          <DetailItem label="Updated" value={formatUnixTimestamp(hold.last_update)} />
+          <DetailItem label="Last update" value={formatUnixTimestamp(hold.last_update)} />
         </div>
 
+
+        {/* 
         <section className="mt-6 rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
           <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
             Colors and labels
@@ -113,26 +113,18 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
             )}
           </div>
         </section>
+        */}
 
         <section className="mt-6 space-y-3">
-          <a
-            href={hold.links.hubFolderUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium !text-white transition hover:bg-slate-800 dark:bg-sky-500 dark:hover:bg-sky-400"
-          >
-            <ExternalLink className="h-4 w-4 shrink-0 text-current" />
-            Contribute on Hugging Face
-          </a>
           <div className="grid gap-3 sm:grid-cols-2">
             <a
-              href={hold.links.metadataUrl}
+              href={hold.links.hubFolderUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300/80 px-4 py-3 text-sm font-medium text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
               <FileJson className="h-4 w-4" />
-              Open metadata
+              Open on HuggingFace
             </a>
             <a
               href={hold.links.primaryAssetUrl}
@@ -141,7 +133,7 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300/80 px-4 py-3 text-sm font-medium text-slate-700 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
             >
               <ExternalLink className="h-4 w-4" />
-              Open asset
+              Download GLB file
             </a>
           </div>
         </section>
