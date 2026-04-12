@@ -19,7 +19,7 @@ function loadStoredSession(): OAuthResult | null {
     if (!raw) return null
     const stored: StoredSession = JSON.parse(raw)
     const expiresAt = new Date(stored.accessTokenExpiresAt)
-    if (expiresAt <= new Date()) {
+    if (expiresAt.getTime() <= Date.now() + 60 * 1000) {
       localStorage.removeItem(STORAGE_KEY)
       return null
     }
