@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { oauthHandleRedirectIfPresent, oauthLoginUrl } from '@huggingface/hub'
 import type { OAuthResult } from '@huggingface/hub'
 
@@ -58,8 +58,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [oauthResult, setOauthResult] = useState<OAuthResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [oauthError, setOauthError] = useState<string | null>(null)
+  // Prevent double-invocation in React StrictMode from exchanging the OAuth code twice
+  const initRan = useRef(false)
 
   useEffect(() => {
+    if (initRan.current) return
+    initRan.current = true
+
     async function init() {
       try {
         const result = await oauthHandleRedirectIfPresent()
