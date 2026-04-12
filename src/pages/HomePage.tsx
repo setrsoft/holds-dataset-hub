@@ -158,8 +158,7 @@ export function HomePage() {
               Identify
             </h2>
             <p className="mt-2 text-slate-600 dark:text-slate-300">
-              You are an experienced routesetter? Let&apos;s see how many holds you can identify
-              :D
+              You are an experienced routesetter? Let&apos;s see how many holds you can identify !
             </p>
             <span className="mt-4 text-sm font-medium text-amber-600 group-hover:underline dark:text-amber-400">
               Go to Identify →
@@ -263,7 +262,12 @@ export function HomePage() {
         </section>
       </div>
 
-      <HoldDetailDrawer hold={selectedHold} onClose={() => setSelectedHoldId(null)} />
+      <HoldDetailDrawer
+        hold={selectedHold}
+        onClose={() => setSelectedHoldId(null)}
+        creationOptions={data?.creationOptions ?? null}
+        repoId={repoId}
+      />
     </main>
   )
 }
