@@ -48,6 +48,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
   }
 
   async function handleSave() {
+    if (!hold) return
     if (!oauthResult) {
       setSaveError('Log in with Hugging Face to save edits.')
       return
@@ -72,6 +73,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
   }
 
   function handleCancel() {
+    if (!hold) return
     setDraftModel(hold.model ?? '')
     setDraftType(hold.type ?? '')
     setDraftSize(hold.size ?? '')
