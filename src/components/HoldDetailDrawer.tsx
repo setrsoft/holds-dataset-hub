@@ -1,21 +1,83 @@
-import { ExternalLink, FileJson, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ExternalLink, FileJson, LoaderCircle, Pencil, Upload, X } from 'lucide-react'
 
 import { formatUnixTimestamp } from '../lib/registry'
+import { updateHold } from '../lib/uploadHold'
+import { useAuth } from '../contexts/AuthContext'
 import { AttentionBadge } from './AttentionBadge'
 import { HoldGlbViewer } from './HoldGlbViewer'
+import { SelectWithOther } from './AddHoldDialog'
 
-import type { DerivedHold } from '../types/registry'
+import type { CreationOptions, DerivedHold } from '../types/registry'
 
 interface HoldDetailDrawerProps {
   hold: DerivedHold | null
   onClose: () => void
+  creationOptions: CreationOptions | null
+  repoId: string
 }
 
 const fallbackValue = 'N/A'
 
-export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
+export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: HoldDetailDrawerProps) {
+  const { oauthResult } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [commitUrl, setCommitUrl] = useState<string | undefined>(undefined)
+  const [draftModel, setDraftModel] = useState('')
+  const [draftType, setDraftType] = useState('')
+  const [draftSize, setDraftSize] = useState('')
+  const [draftFile, setDraftFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!hold) return
+    setDraftModel(hold.model ?? '')
+    setDraftType(hold.type ?? '')
+    setDraftSize(hold.size ?? '')
+    setDraftFile(null)
+    setIsEditing(false)
+    setSaveError(null)
+    setCommitUrl(undefined)
+  }, [hold?.hold_id])
+
   if (!hold) {
     return null
+  }
+
+  async function handleSave() {
+    if (!oauthResult) {
+      setSaveError('Log in with Hugging Face to save edits.')
+      return
+    }
+    setSaveError(null)
+    setCommitUrl(undefined)
+    setIsSaving(true)
+    try {
+      const result = await updateHold({
+        repoId,
+        accessToken: oauthResult.accessToken,
+        hold,
+        updates: { model: draftModel, type: draftType, size: draftSize, replacementFile: draftFile },
+      })
+      setCommitUrl(result.commitUrl)
+      setIsEditing(false)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function handleCancel() {
+    setDraftModel(hold.model ?? '')
+    setDraftType(hold.type ?? '')
+    setDraftSize(hold.size ?? '')
+    setDraftFile(null)
+    setSaveError(null)
+    setIsEditing(false)
   }
 
   return (
@@ -39,14 +101,61 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
               {hold.manufacturer ?? 'unknown'} / {hold.model ?? 'unknown'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-300/80 p-2 text-slate-500 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="rounded-full border border-slate-300/80 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-950 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-sky-500"
+                >
+                  {isSaving && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                  Save
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setCommitUrl(undefined); setIsEditing(true) }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-300/80 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:text-white"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-slate-300/80 p-2 text-slate-500 hover:text-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
+
+        {saveError && (
+          <section className="mt-4 rounded-3xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-300">
+            {saveError}
+          </section>
+        )}
+
+        {commitUrl && !isEditing && (
+          <section className="mt-4 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+            Changes submitted as a Pull Request.{' '}
+            <a href={commitUrl} target="_blank" rel="noreferrer" className="underline">
+              View PR
+            </a>
+          </section>
+        )}
 
         <div className="mt-5 flex flex-wrap gap-2">
           {hold.attentionReasons.length > 0 ? (
@@ -68,52 +177,103 @@ export function HoldDetailDrawer({ hold, onClose }: HoldDetailDrawerProps) {
         </section>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <DetailItem label="Model" value={hold.model ?? fallbackValue} />
-          <DetailItem label="Type" value={hold.type ?? fallbackValue} />
-          <DetailItem label="Size" value={hold.size ?? fallbackValue} />
-          <DetailItem label="Last update" value={formatUnixTimestamp(hold.last_update)} />
+          {isEditing ? (
+            <>
+              <SelectWithOther
+                label="Model"
+                value={draftModel}
+                onChange={setDraftModel}
+                options={creationOptions?.models ?? []}
+                placeholder="Select model"
+              />
+              <SelectWithOther
+                label="Type"
+                value={draftType}
+                onChange={setDraftType}
+                options={creationOptions?.holdTypes ?? []}
+                placeholder="Select type"
+              />
+              <SelectWithOther
+                label="Size"
+                value={draftSize}
+                onChange={setDraftSize}
+                options={creationOptions?.sizes ?? []}
+                placeholder="Select size"
+              />
+              <DetailItem label="Last update" value={formatUnixTimestamp(hold.last_update)} />
+            </>
+          ) : (
+            <>
+              <DetailItem label="Model" value={hold.model ?? fallbackValue} />
+              <DetailItem label="Type" value={hold.type ?? fallbackValue} />
+              <DetailItem label="Size" value={hold.size ?? fallbackValue} />
+              <DetailItem label="Last update" value={formatUnixTimestamp(hold.last_update)} />
+            </>
+          )}
         </div>
 
-
-        {/* 
-        <section className="mt-6 rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            Colors and labels
-          </h3>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(hold.available_colors ?? []).map((color) => (
-              <span
-                key={color}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200"
+        {isEditing && (
+          <section className="mt-6 rounded-3xl border border-slate-200/80 p-5 dark:border-slate-800">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Replace 3D file
+            </h3>
+            <div
+              role="button"
+              tabIndex={0}
+              className={`mt-4 flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-5 text-center transition-colors ${
+                isDragging
+                  ? 'border-sky-400 bg-sky-500/10 dark:border-sky-500 dark:bg-sky-500/20'
+                  : 'border-slate-300/80 bg-white hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-600'
+              }`}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true) }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false) }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsDragging(false)
+                const file = e.dataTransfer.files[0]
+                if (file) setDraftFile(file)
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  fileInputRef.current?.click()
+                }
+              }}
+            >
+              <Upload className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+              {draftFile ? (
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {draftFile.name}
+                </span>
+              ) : (
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Drop a file here, or click to browse
+                </span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                setDraftFile(file)
+                e.target.value = ''
+              }}
+            />
+            {draftFile && (
+              <button
+                type="button"
+                onClick={() => setDraftFile(null)}
+                className="mt-2 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-white"
               >
-                <span
-                  className="h-3 w-3 rounded-full border border-white/60 dark:border-slate-950/60"
-                  style={{ backgroundColor: color }}
-                />
-                {color}
-              </span>
-            ))}
-            {(!hold.available_colors || hold.available_colors.length === 0) && (
-              <span className="text-sm text-slate-500 dark:text-slate-400">No color</span>
+                Remove file
+              </button>
             )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(hold.labels ?? []).map((label) => (
-              <span
-                key={label}
-                className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {label}
-              </span>
-            ))}
-            {(!hold.labels || hold.labels.length === 0) && (
-              <span className="text-sm text-slate-500 dark:text-slate-400">No labels</span>
-            )}
-          </div>
-        </section>
-        */}
+          </section>
+        )}
 
         <section className="mt-6 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">

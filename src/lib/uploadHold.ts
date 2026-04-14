@@ -1,7 +1,19 @@
 import { commit, whoAmI } from '@huggingface/hub'
 
 import { ANONYMOUS_UPLOAD_URL } from './env'
-import type { NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
+import type { DerivedHold, NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
+
+export interface UpdateHoldParams {
+  repoId: string
+  accessToken: string
+  hold: DerivedHold
+  updates: {
+    model: string
+    type: string
+    size: string
+    replacementFile?: File | null
+  }
+}
 
 function sanitizeSegment(segment: string): string {
   return segment.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -35,6 +47,63 @@ export function getFileRelativePath(file: File): string {
     return sanitizeFileName(file.name)
   }
   return segments.join('/')
+}
+
+export async function updateHold({
+  repoId,
+  accessToken,
+  hold,
+  updates,
+}: UpdateHoldParams): Promise<UploadHoldResult> {
+  // Strip DerivedHold-only fields, keep only HoldRecord fields
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { links, attentionReasons, searchText, status, ...holdRecord } = hold
+
+  const updatedMetadata = {
+    ...holdRecord,
+    model: updates.model,
+    type: updates.type,
+    size: updates.size,
+    last_update: Math.floor(Date.now() / 1000),
+  }
+
+  const metadataBlob = new Blob([`${JSON.stringify(updatedMetadata, null, 2)}\n`], {
+    type: 'application/json',
+  })
+
+  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = [
+    {
+      operation: 'addOrUpdate',
+      path: `${hold.hold_id}/metadata.json`,
+      content: metadataBlob,
+    },
+  ]
+
+  if (updates.replacementFile) {
+    operations.push({
+      operation: 'addOrUpdate',
+      path: `${hold.hold_id}/${getFileRelativePath(updates.replacementFile)}`,
+      content: updates.replacementFile,
+    })
+  }
+
+  const result = await commit({
+    accessToken,
+    branch: 'staging',
+    isPullRequest: true,
+    repo: {
+      type: 'dataset',
+      name: repoId,
+    },
+    title: `Update hold ${hold.hold_id}`,
+    useWebWorkers: true,
+    operations,
+  })
+
+  return {
+    holdId: hold.hold_id,
+    commitUrl: result?.pullRequestUrl,
+  }
 }
 
 export async function uploadHold({

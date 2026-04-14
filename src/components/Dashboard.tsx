@@ -217,7 +217,12 @@ export function Dashboard() {
         </section>
       </div>
 
-      <HoldDetailDrawer hold={selectedHold} onClose={() => setSelectedHoldId(null)} />
+      <HoldDetailDrawer
+        hold={selectedHold}
+        onClose={() => setSelectedHoldId(null)}
+        creationOptions={creationOptions}
+        repoId={repoId}
+      />
 
       {data && creationOptions && (
         <AddHoldDialog
