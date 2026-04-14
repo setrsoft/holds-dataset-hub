@@ -61,6 +61,7 @@ jobs:
           VITE_ANONYMOUS_UPLOAD_URL: ${{ vars.VITE_ANONYMOUS_UPLOAD_URL || secrets.VITE_ANONYMOUS_UPLOAD_URL }}
           VITE_VOTE_WEBHOOK_URL: ${{ vars.VITE_VOTE_WEBHOOK_URL || secrets.VITE_VOTE_WEBHOOK_URL }}
           VITE_VOTE_WEBHOOK_SECRET: ${{ vars.VITE_VOTE_WEBHOOK_SECRET || secrets.VITE_VOTE_WEBHOOK_SECRET }}
+          VITE_HF_OAUTH_CLIENT_ID: ${{ vars.VITE_HF_OAUTH_CLIENT_ID || secrets.VITE_HF_OAUTH_CLIENT_ID }}
         run: npm run build
 
       - name: SPA fallback for GitHub Pages
