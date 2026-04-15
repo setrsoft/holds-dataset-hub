@@ -169,7 +169,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
 
         {commitUrl && !isEditing && (
           <section className="mt-4 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-800 dark:text-emerald-300 space-y-2">
-            <p className="font-medium">Success, thanks for your contribution we will review your request as soon as possible...</p>
+            <p className="font-medium">Success! Thanks for your contribution; we will review your request as soon as possible...</p>
             <a href={commitUrl} target="_blank" rel="noreferrer" className="inline-flex underline underline-offset-2 hover:text-emerald-600 dark:hover:text-emerald-200">
               View your Pull Request
             </a>
