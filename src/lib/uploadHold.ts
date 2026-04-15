@@ -1,13 +1,35 @@
-import { commit, whoAmI } from '@huggingface/hub'
+import { commit } from '@huggingface/hub'
 
 import { ANONYMOUS_UPLOAD_URL } from './env'
 import type { DerivedHold, NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
+
+/** Injects Authorization header into every fetch, bypassing SDK token validation for OAuth JWTs. */
+function makeAuthedFetch(accessToken: string): typeof fetch {
+  return (input, init = {}) => {
+    const headers = new Headers((init as RequestInit).headers)
+    headers.set('Authorization', `Bearer ${accessToken}`)
+    return fetch(input, { ...(init as RequestInit), headers })
+  }
+}
+
+/** Resolves the HF username for an OAuth JWT token via direct API call. */
+async function resolveUsername(accessToken: string): Promise<string> {
+  const res = await fetch('https://huggingface.co/api/whoami-v2', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    throw new Error(`Authorization error (${res.status}). Please log in again.`)
+  }
+  const data = (await res.json()) as { name: string }
+  return data.name
+}
 
 export interface UpdateHoldParams {
   repoId: string
   accessToken: string
   hold: DerivedHold
   updates: {
+    manufacturer: string
     model: string
     type: string
     size: string
@@ -55,47 +77,88 @@ export async function updateHold({
   hold,
   updates,
 }: UpdateHoldParams): Promise<UploadHoldResult> {
-  // Strip DerivedHold-only fields, keep only HoldRecord fields
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const username = await resolveUsername(accessToken)
   const { links, attentionReasons, searchText, status, ...holdRecord } = hold
 
   const updatedMetadata = {
     ...holdRecord,
+    manufacturer: updates.manufacturer,
     model: updates.model,
     type: updates.type,
     size: updates.size,
     last_update: Math.floor(Date.now() / 1000),
   }
 
-  const metadataBlob = new Blob([`${JSON.stringify(updatedMetadata, null, 2)}\n`], {
-    type: 'application/json',
-  })
-
-  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = [
-    {
-      operation: 'addOrUpdate',
-      path: `${hold.hold_id}/metadata.json`,
-      content: metadataBlob,
-    },
-  ]
+  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = []
+  let commitTitle = `Update hold ${hold.hold_id}`
 
   if (updates.replacementFile) {
+    const pendingFolderId =
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)) || 'pending'
+    const pendingPathPrefix = `pending/${pendingFolderId}`
+
+    const metadataBlob = new Blob([`${JSON.stringify(updatedMetadata, null, 2)}\n`], {
+      type: 'application/json',
+    })
+
     operations.push({
       operation: 'addOrUpdate',
-      path: `${hold.hold_id}/${getFileRelativePath(updates.replacementFile)}`,
+      path: `${pendingPathPrefix}/metadata.json`,
+      content: metadataBlob,
+    })
+
+    operations.push({
+      operation: 'addOrUpdate',
+      path: `${pendingPathPrefix}/${getFileRelativePath(updates.replacementFile)}`,
       content: updates.replacementFile,
     })
+
+    commitTitle = `Propose file replacement for hold ${hold.hold_id}`
+  } else {
+    // If no files are linked, we edit the votes.json
+    let existingVotes: Record<string, any> = {}
+    try {
+      const response = await fetch(`https://huggingface.co/datasets/${repoId}/raw/main/${hold.hold_id}/votes.json`)
+      if (response.ok) {
+        existingVotes = await response.json()
+      }
+    } catch (e) {
+      // If it doesn't exist or fails to parse, start fresh
+    }
+
+    existingVotes[username ?? 'anonymous'] = {
+      manufacturer: updates.manufacturer,
+      model: updates.model,
+      type: updates.type,
+      size: updates.size,
+      timestamp: Math.floor(Date.now() / 1000)
+    }
+
+    const votesBlob = new Blob([`${JSON.stringify(existingVotes, null, 2)}\n`], {
+      type: 'application/json',
+    })
+
+    operations.push({
+      operation: 'addOrUpdate',
+      path: `${hold.hold_id}/votes.json`,
+      content: votesBlob,
+    })
+
+    commitTitle = `Vote on metadata for hold ${hold.hold_id}`
   }
 
   const result = await commit({
-    accessToken,
+    fetch: makeAuthedFetch(accessToken),
     branch: 'staging',
     isPullRequest: true,
     repo: {
       type: 'dataset',
       name: repoId,
     },
-    title: `Update hold ${hold.hold_id}`,
+    title: commitTitle,
+    description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
     useWebWorkers: true,
     operations,
   })
@@ -111,7 +174,7 @@ export async function uploadHold({
   accessToken,
   hold,
 }: UploadHoldParams): Promise<UploadHoldResult> {
-  const { name: username } = await whoAmI({ accessToken })
+  const username = await resolveUsername(accessToken)
 
   const pendingFolderId =
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -120,7 +183,6 @@ export async function uploadHold({
 
   const pendingPathPrefix = `pending/${pendingFolderId}`
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { uploadFiles: _uploadFiles, ...holdMetadata } = hold
   const metadataBlob = new Blob([`${JSON.stringify(holdMetadata, null, 2)}\n`], {
     type: 'application/json',
@@ -140,7 +202,6 @@ export async function uploadHold({
     const ext = lastDotIndex === -1 ? '' : basePath.substring(lastDotIndex)
 
     let counter = 2
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const candidate = `${base}-${counter}${ext}`
       if (!usedPaths.has(candidate)) {
@@ -152,7 +213,7 @@ export async function uploadHold({
   }
 
   const result = await commit({
-    accessToken,
+    fetch: makeAuthedFetch(accessToken),
     branch: 'staging',
     isPullRequest: true,
     repo: {

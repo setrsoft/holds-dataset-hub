@@ -8,7 +8,7 @@ import { parseCommaSeparatedValues } from '../lib/registry'
 import { useRegistry } from '../hooks/useRegistry'
 import { HuggingFaceLogo, SelectWithOther } from '../components/AddHoldDialog'
 import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/useAuth'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 

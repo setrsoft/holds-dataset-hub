@@ -1,17 +1,16 @@
 import {
   Camera,
-  Database,
-  ExternalLink,
   LoaderCircle,
-  RefreshCw,
-  ScanSearch,
+  LogOut,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useRegistry } from '../hooks/useRegistry'
-import { buildDatasetTreeUrl } from '../lib/hf'
 import { filterHolds } from '../lib/registry'
+import { HF_OAUTH_CLIENT_ID } from '../lib/env'
+import { useAuth } from '../contexts/useAuth'
+import { HuggingFaceLogo } from '../components/AddHoldDialog'
 import { Filters } from '../components/Filters'
 import { HoldCard } from '../components/HoldCard'
 import { HoldDetailDrawer } from '../components/HoldDetailDrawer'
@@ -64,7 +63,8 @@ function getHeroHoldUrlsForGrid(): string[] {
 }
 
 export function HomePage() {
-  const { data, error, isLoading, refresh, repoId, revision } = useRegistry()
+  const { data, error, isLoading, refresh, repoId } = useRegistry()
+  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme)
   const [filters, setFilters] = useState<HoldFilters>(defaultFilters)
   const [selectedHoldId, setSelectedHoldId] = useState<string | null>(null)
@@ -83,17 +83,54 @@ export function HomePage() {
     return data.holds.find((h) => h.hold_id === selectedHoldId) ?? null
   }, [data, selectedHoldId])
 
-  const datasetUrl = buildDatasetTreeUrl(repoId, revision)
-  const lastUpdated = data?.raw.last_updated
-    ? new Date(data.raw.last_updated).toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-    : 'N/A'
-
   return (
     <main className="min-h-screen text-slate-900 dark:text-slate-100">
       <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-6 sm:px-6 lg:px-8">
+        {/* Top bar: theme toggle left, HF login right */}
+        <div className="mb-4 flex items-center justify-between">
+          <ThemeToggle
+            theme={theme}
+            onToggle={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          />
+          {HF_OAUTH_CLIENT_ID && (
+            <div>
+              {oauthResult ? (
+                <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-800 dark:text-emerald-300">
+                  {oauthResult.userInfo.picture && (
+                    <img
+                      src={oauthResult.userInfo.picture}
+                      alt=""
+                      className="h-6 w-6 shrink-0 rounded-full"
+                    />
+                  )}
+                  <span className="font-medium">{oauthResult.userInfo.preferred_username}</span>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="ml-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 px-2 py-1 text-xs font-medium hover:bg-emerald-500/10"
+                  >
+                    <LogOut className="h-3 w-3" />
+                    Log out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void login()}
+                  disabled={authLoading}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-sky-400 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                >
+                  <HuggingFaceLogo />
+                  Login with Hugging Face
+                </button>
+              )}
+              {oauthError && (
+                <p className="mt-1 text-right text-xs text-rose-500">{oauthError}</p>
+              )}
+            </div>
+          )}
+        </div>
+
         <section className="relative min-h-[70vh] w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div
             className="absolute inset-0 h-full w-full overflow-hidden opacity-60 dark:opacity-50"
@@ -147,66 +184,9 @@ export function HomePage() {
               Go to Add hold →
             </span>
           </Link>
-          <Link
-            to="/identify"
-            className="group flex flex-col rounded-[2rem] border border-slate-200/80 bg-white/90 p-8 shadow-lg transition hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/90"
-          >
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400">
-              <ScanSearch className="h-7 w-7" />
-            </span>
-            <h2 className="mt-4 text-2xl font-semibold text-slate-950 dark:text-white">
-              Identify
-            </h2>
-            <p className="mt-2 text-slate-600 dark:text-slate-300">
-              You are an experienced routesetter? Let&apos;s see how many holds you can identify !
-            </p>
-            <span className="mt-4 text-sm font-medium text-amber-600 group-hover:underline dark:text-amber-400">
-              Go to Identify →
-            </span>
-          </Link>
         </div>
 
-        {/* Header bar: theme, refresh, repo info */}
-        <header className="mt-10 rounded-[2rem] border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                <Database className="h-4 w-4" />
-                Repo: {repoId}
-              </span>
-              <span className="rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                Revision: {revision}
-              </span>
-              <span className="rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                Index updated: {lastUpdated}
-              </span>
-              <a
-                href={datasetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1.5 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:hover:border-sky-500 dark:hover:text-sky-300"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open dataset
-              </a>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle
-                theme={theme}
-                onToggle={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-              />
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
-            </div>
-          </div>
-        </header>
-
+        
         {/* Stats, filters (collapsed by default), gallery */}
         <section className="mt-6">
           {isLoading && !data ? (
