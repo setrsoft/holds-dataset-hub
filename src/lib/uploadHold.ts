@@ -1,7 +1,28 @@
-import { commit, whoAmI } from '@huggingface/hub'
+import { commit } from '@huggingface/hub'
 
 import { ANONYMOUS_UPLOAD_URL } from './env'
 import type { DerivedHold, NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
+
+/** Injects Authorization header into every fetch, bypassing SDK token validation for OAuth JWTs. */
+function makeAuthedFetch(accessToken: string): typeof fetch {
+  return (input, init = {}) => {
+    const headers = new Headers((init as RequestInit).headers)
+    headers.set('Authorization', `Bearer ${accessToken}`)
+    return fetch(input, { ...(init as RequestInit), headers })
+  }
+}
+
+/** Resolves the HF username for an OAuth JWT token via direct API call. */
+async function resolveUsername(accessToken: string): Promise<string> {
+  const res = await fetch('https://huggingface.co/api/whoami-v2', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    throw new Error(`Authorization error (${res.status}). Please log in again.`)
+  }
+  const data = (await res.json()) as { name: string }
+  return data.name
+}
 
 export interface UpdateHoldParams {
   repoId: string
@@ -56,7 +77,7 @@ export async function updateHold({
   hold,
   updates,
 }: UpdateHoldParams): Promise<UploadHoldResult> {
-  const { name: username } = await whoAmI({ accessToken })
+  const username = await resolveUsername(accessToken)
   const { links, attentionReasons, searchText, status, ...holdRecord } = hold
 
   const updatedMetadata = {
@@ -129,7 +150,7 @@ export async function updateHold({
   }
 
   const result = await commit({
-    accessToken,
+    fetch: makeAuthedFetch(accessToken),
     branch: 'staging',
     isPullRequest: true,
     repo: {
@@ -153,7 +174,7 @@ export async function uploadHold({
   accessToken,
   hold,
 }: UploadHoldParams): Promise<UploadHoldResult> {
-  const { name: username } = await whoAmI({ accessToken })
+  const username = await resolveUsername(accessToken)
 
   const pendingFolderId =
     (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -192,7 +213,7 @@ export async function uploadHold({
   }
 
   const result = await commit({
-    accessToken,
+    fetch: makeAuthedFetch(accessToken),
     branch: 'staging',
     isPullRequest: true,
     repo: {

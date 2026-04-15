@@ -148,47 +148,7 @@ export function HomePage() {
           </Link>
         </div>
 
-        {/* Header bar: theme, refresh, repo info */}
-        <header className="mt-10 rounded-[2rem] border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                <Database className="h-4 w-4" />
-                Repo: {repoId}
-              </span>
-              <span className="rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                Revision: {revision}
-              </span>
-              <span className="rounded-full border border-slate-300/80 px-3 py-1.5 dark:border-slate-700">
-                Index updated: {lastUpdated}
-              </span>
-              <a
-                href={datasetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 px-3 py-1.5 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:hover:border-sky-500 dark:hover:text-sky-300"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open dataset
-              </a>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle
-                theme={theme}
-                onToggle={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-              />
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-sky-300"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
-            </div>
-          </div>
-        </header>
-
+        
         {/* Stats, filters (collapsed by default), gallery */}
         <section className="mt-6">
           {isLoading && !data ? (
