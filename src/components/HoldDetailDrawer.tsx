@@ -25,6 +25,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [commitUrl, setCommitUrl] = useState<string | undefined>(undefined)
+  const [draftManufacturer, setDraftManufacturer] = useState('')
   const [draftModel, setDraftModel] = useState('')
   const [draftType, setDraftType] = useState('')
   const [draftSize, setDraftSize] = useState('')

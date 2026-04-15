@@ -8,6 +8,7 @@ export interface UpdateHoldParams {
   accessToken: string
   hold: DerivedHold
   updates: {
+    manufacturer: string
     model: string
     type: string
     size: string
@@ -55,12 +56,11 @@ export async function updateHold({
   hold,
   updates,
 }: UpdateHoldParams): Promise<UploadHoldResult> {
-  // Strip DerivedHold-only fields, keep only HoldRecord fields
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { links, attentionReasons, searchText, status, ...holdRecord } = hold
 
   const updatedMetadata = {
     ...holdRecord,
+    manufacturer: updates.manufacturer,
     model: updates.model,
     type: updates.type,
     size: updates.size,
@@ -120,7 +120,6 @@ export async function uploadHold({
 
   const pendingPathPrefix = `pending/${pendingFolderId}`
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { uploadFiles: _uploadFiles, ...holdMetadata } = hold
   const metadataBlob = new Blob([`${JSON.stringify(holdMetadata, null, 2)}\n`], {
     type: 'application/json',

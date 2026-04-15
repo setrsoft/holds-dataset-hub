@@ -4,7 +4,6 @@ import {
   ExternalLink,
   LoaderCircle,
   RefreshCw,
-  ScanSearch,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -145,23 +144,6 @@ export function HomePage() {
             </p>
             <span className="mt-4 text-sm font-medium text-sky-600 group-hover:underline dark:text-sky-400">
               Go to Add hold →
-            </span>
-          </Link>
-          <Link
-            to="/identify"
-            className="group flex flex-col rounded-[2rem] border border-slate-200/80 bg-white/90 p-8 shadow-lg transition hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/90"
-          >
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400">
-              <ScanSearch className="h-7 w-7" />
-            </span>
-            <h2 className="mt-4 text-2xl font-semibold text-slate-950 dark:text-white">
-              Identify
-            </h2>
-            <p className="mt-2 text-slate-600 dark:text-slate-300">
-              You are an experienced routesetter? Let&apos;s see how many holds you can identify !
-            </p>
-            <span className="mt-4 text-sm font-medium text-amber-600 group-hover:underline dark:text-amber-400">
-              Go to Identify →
             </span>
           </Link>
         </div>
