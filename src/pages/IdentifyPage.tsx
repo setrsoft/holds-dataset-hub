@@ -6,7 +6,7 @@ import { useRegistry } from '../hooks/useRegistry'
 import { HuggingFaceLogo, SelectWithOther } from '../components/AddHoldDialog'
 import { HoldGlbViewer } from '../components/HoldGlbViewer'
 import { StarRating } from '../components/StarRating'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/useAuth'
 import { HF_OAUTH_CLIENT_ID, VOTE_WEBHOOK_URL, VOTE_WEBHOOK_SECRET } from '../lib/env'
 
 import type { DerivedHold } from '../types/registry'

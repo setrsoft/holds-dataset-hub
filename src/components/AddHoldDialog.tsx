@@ -5,7 +5,7 @@ import { uploadHold, uploadHoldAnonymous } from '../lib/hf'
 import { ANONYMOUS_UPLOAD_URL, HF_OAUTH_CLIENT_ID } from '../lib/env'
 import { getFilesFromDataTransfer } from '../lib/getFilesFromDataTransfer'
 import { parseCommaSeparatedValues } from '../lib/registry'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/useAuth'
 
 import type { CreationOptions, NewHoldMetadata } from '../types/registry'
 

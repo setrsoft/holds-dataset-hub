@@ -140,7 +140,6 @@ export async function uploadHold({
     const ext = lastDotIndex === -1 ? '' : basePath.substring(lastDotIndex)
 
     let counter = 2
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const candidate = `${base}-${counter}${ext}`
       if (!usedPaths.has(candidate)) {

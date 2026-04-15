@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { oauthHandleRedirectIfPresent, oauthLoginUrl } from '@huggingface/hub'
 import type { OAuthResult } from '@huggingface/hub'
 
 import { HF_OAUTH_CLIENT_ID } from '../lib/env'
+import { AuthContext } from './useAuth'
 
 const STORAGE_KEY = 'settersoft-registry.hf-oauth'
 
@@ -43,16 +44,6 @@ function saveSession(result: OAuthResult) {
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
-
-interface AuthContextValue {
-  oauthResult: OAuthResult | null
-  isLoading: boolean
-  oauthError: string | null
-  login: () => Promise<void>
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [oauthResult, setOauthResult] = useState<OAuthResult | null>(null)
@@ -114,10 +105,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }

@@ -3,7 +3,7 @@ import { ExternalLink, FileJson, LoaderCircle, Pencil, Upload, X } from 'lucide-
 
 import { formatUnixTimestamp } from '../lib/registry'
 import { updateHold } from '../lib/uploadHold'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/useAuth'
 import { AttentionBadge } from './AttentionBadge'
 import { HoldGlbViewer } from './HoldGlbViewer'
 import { SelectWithOther } from './AddHoldDialog'
@@ -41,7 +41,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
     setIsEditing(false)
     setSaveError(null)
     setCommitUrl(undefined)
-  }, [hold?.hold_id])
+  }, [hold])
 
   if (!hold) {
     return null
