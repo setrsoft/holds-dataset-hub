@@ -64,7 +64,7 @@ function getHeroHoldUrlsForGrid(): string[] {
 
 export function HomePage() {
   const { data, error, isLoading, refresh, repoId } = useRegistry()
-  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
+  const { oauthResult, oauthError, hasOrgAccess, login, logout, isLoading: authLoading } = useAuth()
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme)
   const [filters, setFilters] = useState<HoldFilters>(defaultFilters)
   const [selectedHoldId, setSelectedHoldId] = useState<string | null>(null)
@@ -126,6 +126,25 @@ export function HomePage() {
               )}
               {oauthError && (
                 <p className="mt-1 text-right text-xs text-rose-500">{oauthError}</p>
+              )}
+              {oauthResult && !hasOrgAccess && (
+                <div
+                  role="alert"
+                  className="mt-2 space-y-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200"
+                >
+                  <p>
+                    Your current session doesn't have write access to the dataset organisation.
+                    Please re-login and grant access to <strong>setrsoft</strong> when prompted.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void login()}
+                    className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <HuggingFaceLogo />
+                    Re-login and grant org access
+                  </button>
+                </div>
               )}
             </div>
           )}

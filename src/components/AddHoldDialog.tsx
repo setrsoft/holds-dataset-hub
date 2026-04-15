@@ -37,7 +37,7 @@ export function AddHoldDialog({
   onClose,
   onUploaded,
 }: AddHoldDialogProps) {
-  const { oauthResult, oauthError, login, logout, isLoading: authLoading } = useAuth()
+  const { oauthResult, oauthError, hasOrgAccess, login, logout, isLoading: authLoading } = useAuth()
   const [manufacturer, setManufacturer] = useState('')
   const [model, setModel] = useState('')
   const [holdType, setHoldType] = useState('')
@@ -305,26 +305,48 @@ export function AddHoldDialog({
                         </div>
                       )}
                       {oauthResult ? (
-                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-                          {oauthResult.userInfo.picture && (
-                            <img
-                              src={oauthResult.userInfo.picture}
-                              alt=""
-                              className="h-8 w-8 shrink-0 rounded-full"
-                            />
+                        <>
+                          <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                            {oauthResult.userInfo.picture && (
+                              <img
+                                src={oauthResult.userInfo.picture}
+                                alt=""
+                                className="h-8 w-8 shrink-0 rounded-full"
+                              />
+                            )}
+                            <span className="flex-1 font-medium">
+                              {oauthResult.userInfo.preferred_username}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={logout}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10"
+                            >
+                              <LogOut className="h-3.5 w-3.5" />
+                              Log out
+                            </button>
+                          </div>
+                          {!hasOrgAccess && !publishAnonymously && (
+                            <div
+                              role="alert"
+                              className="space-y-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200"
+                            >
+                              <p>
+                                Your current session doesn't have write access to the dataset
+                                organisation. Please re-login and grant access to{' '}
+                                <strong>setrsoft</strong> when prompted.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => void login()}
+                                className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                              >
+                                <HuggingFaceLogo />
+                                Re-login and grant org access
+                              </button>
+                            </div>
                           )}
-                          <span className="flex-1 font-medium">
-                            {oauthResult.userInfo.preferred_username}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={logout}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10"
-                          >
-                            <LogOut className="h-3.5 w-3.5" />
-                            Log out
-                          </button>
-                        </div>
+                        </>
                       ) : (
                         <button
                           type="button"

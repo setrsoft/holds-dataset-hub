@@ -5,6 +5,8 @@ export interface AuthContextValue {
   oauthResult: OAuthResult | null
   isLoading: boolean
   oauthError: string | null
+  /** Has to be True so the current token has write access to the setrsoft org (orgIds was granted). */
+  hasOrgAccess: boolean
   login: () => Promise<void>
   logout: () => void
 }
