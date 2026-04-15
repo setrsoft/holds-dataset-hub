@@ -6,7 +6,7 @@ import { updateHold } from '../lib/uploadHold'
 import { useAuth } from '../contexts/useAuth'
 import { AttentionBadge } from './AttentionBadge'
 import { HoldGlbViewer } from './HoldGlbViewer'
-import { SelectWithOther } from './AddHoldDialog'
+import { SelectWithOther, HuggingFaceLogo } from './AddHoldDialog'
 
 import type { CreationOptions, DerivedHold } from '../types/registry'
 
@@ -52,7 +52,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
   async function handleSave() {
     if (!hold) return
     if (!oauthResult) {
-      await login()
+      setSaveError('login_required')
       return
     }
     setSaveError(null)
@@ -148,16 +148,30 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
         </div>
 
         {saveError && (
-          <section className="mt-4 rounded-3xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-800 dark:text-rose-300">
-            {saveError}
+          <section className="mt-4 rounded-3xl border border-rose-400/30 bg-rose-500/10 p-5 text-sm text-rose-800 dark:text-rose-300">
+            {saveError === 'login_required' ? (
+              <div className="space-y-4">
+                <p>Please log in with Hugging Face to submit improvements.</p>
+                <button
+                  type="button"
+                  onClick={() => void login()}
+                  className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300/80 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  <HuggingFaceLogo />
+                  Login with Hugging Face
+                </button>
+              </div>
+            ) : (
+              <p>{saveError}</p>
+            )}
           </section>
         )}
 
         {commitUrl && !isEditing && (
-          <section className="mt-4 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
-            Changes submitted as a Pull Request.{' '}
-            <a href={commitUrl} target="_blank" rel="noreferrer" className="underline">
-              View PR
+          <section className="mt-4 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-5 text-sm text-emerald-800 dark:text-emerald-300 space-y-2">
+            <p className="font-medium">Success, thanks for your contribution we will review your request as soon as possible...</p>
+            <a href={commitUrl} target="_blank" rel="noreferrer" className="inline-flex underline underline-offset-2 hover:text-emerald-600 dark:hover:text-emerald-200">
+              View your Pull Request
             </a>
           </section>
         )}

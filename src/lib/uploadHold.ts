@@ -56,6 +56,7 @@ export async function updateHold({
   hold,
   updates,
 }: UpdateHoldParams): Promise<UploadHoldResult> {
+  const { name: username } = await whoAmI({ accessToken })
   const { links, attentionReasons, searchText, status, ...holdRecord } = hold
 
   const updatedMetadata = {
@@ -67,24 +68,64 @@ export async function updateHold({
     last_update: Math.floor(Date.now() / 1000),
   }
 
-  const metadataBlob = new Blob([`${JSON.stringify(updatedMetadata, null, 2)}\n`], {
-    type: 'application/json',
-  })
-
-  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = [
-    {
-      operation: 'addOrUpdate',
-      path: `${hold.hold_id}/metadata.json`,
-      content: metadataBlob,
-    },
-  ]
+  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = []
+  let commitTitle = `Update hold ${hold.hold_id}`
 
   if (updates.replacementFile) {
+    const pendingFolderId =
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)) || 'pending'
+    const pendingPathPrefix = `pending/${pendingFolderId}`
+
+    const metadataBlob = new Blob([`${JSON.stringify(updatedMetadata, null, 2)}\n`], {
+      type: 'application/json',
+    })
+
     operations.push({
       operation: 'addOrUpdate',
-      path: `${hold.hold_id}/${getFileRelativePath(updates.replacementFile)}`,
+      path: `${pendingPathPrefix}/metadata.json`,
+      content: metadataBlob,
+    })
+
+    operations.push({
+      operation: 'addOrUpdate',
+      path: `${pendingPathPrefix}/${getFileRelativePath(updates.replacementFile)}`,
       content: updates.replacementFile,
     })
+
+    commitTitle = `Propose file replacement for hold ${hold.hold_id}`
+  } else {
+    // If no files are linked, we edit the votes.json
+    let existingVotes: Record<string, any> = {}
+    try {
+      const response = await fetch(`https://huggingface.co/datasets/${repoId}/raw/main/${hold.hold_id}/votes.json`)
+      if (response.ok) {
+        existingVotes = await response.json()
+      }
+    } catch (e) {
+      // If it doesn't exist or fails to parse, start fresh
+    }
+
+    existingVotes[username ?? 'anonymous'] = {
+      manufacturer: updates.manufacturer,
+      model: updates.model,
+      type: updates.type,
+      size: updates.size,
+      timestamp: Math.floor(Date.now() / 1000)
+    }
+
+    const votesBlob = new Blob([`${JSON.stringify(existingVotes, null, 2)}\n`], {
+      type: 'application/json',
+    })
+
+    operations.push({
+      operation: 'addOrUpdate',
+      path: `${hold.hold_id}/votes.json`,
+      content: votesBlob,
+    })
+
+    commitTitle = `Vote on metadata for hold ${hold.hold_id}`
   }
 
   const result = await commit({
@@ -95,7 +136,8 @@ export async function updateHold({
       type: 'dataset',
       name: repoId,
     },
-    title: `Update hold ${hold.hold_id}`,
+    title: commitTitle,
+    description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
     useWebWorkers: true,
     operations,
   })
