@@ -20,7 +20,7 @@ interface HoldDetailDrawerProps {
 const fallbackValue = 'N/A'
 
 export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: HoldDetailDrawerProps) {
-  const { oauthResult } = useAuth()
+  const { oauthResult, login } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -35,6 +35,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
 
   useEffect(() => {
     if (!hold) return
+    setDraftManufacturer(hold.manufacturer ?? '')
     setDraftModel(hold.model ?? '')
     setDraftType(hold.type ?? '')
     setDraftSize(hold.size ?? '')
@@ -51,7 +52,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
   async function handleSave() {
     if (!hold) return
     if (!oauthResult) {
-      setSaveError('Log in with Hugging Face to save edits.')
+      await login()
       return
     }
     setSaveError(null)
@@ -62,7 +63,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
         repoId,
         accessToken: oauthResult.accessToken,
         hold,
-        updates: { model: draftModel, type: draftType, size: draftSize, replacementFile: draftFile },
+        updates: { manufacturer: draftManufacturer, model: draftModel, type: draftType, size: draftSize, replacementFile: draftFile },
       })
       setCommitUrl(result.commitUrl)
       setIsEditing(false)
@@ -75,6 +76,7 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
 
   function handleCancel() {
     if (!hold) return
+    setDraftManufacturer(hold.manufacturer ?? '')
     setDraftModel(hold.model ?? '')
     setDraftType(hold.type ?? '')
     setDraftSize(hold.size ?? '')
@@ -182,6 +184,13 @@ export function HoldDetailDrawer({ hold, onClose, creationOptions, repoId }: Hol
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {isEditing ? (
             <>
+              <SelectWithOther
+                label="Manufacturer"
+                value={draftManufacturer}
+                onChange={setDraftManufacturer}
+                options={creationOptions?.manufacturers ?? []}
+                placeholder="Select manufacturer"
+              />
               <SelectWithOther
                 label="Model"
                 value={draftModel}

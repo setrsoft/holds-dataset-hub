@@ -550,7 +550,6 @@ export function SelectWithOther({
       </select>
       {isUsingOther && (
         <input
-          value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={`Custom ${label.toLowerCase()}`}
           className="mt-2 w-full rounded-2xl border border-slate-300/80 bg-white px-4 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
