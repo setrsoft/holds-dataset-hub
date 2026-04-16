@@ -53,7 +53,7 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           # Base path for GitHub Pages. Override with var or secret if needed.
-          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || secrets.VITE_BASE_PATH || '/holds-dataset-hub/' }}
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || secrets.VITE_BASE_PATH || '/' }}
           # Repository variables (Settings → Actions → Variables) or secrets
           VITE_HF_DATASET_REPO_ID: ${{ vars.VITE_HF_DATASET_REPO_ID || secrets.VITE_HF_DATASET_REPO_ID }}
           VITE_HF_REVISION: ${{ vars.VITE_HF_REVISION || secrets.VITE_HF_REVISION }}
