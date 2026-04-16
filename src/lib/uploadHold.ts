@@ -96,21 +96,20 @@ export async function updateHold({
   updates,
 }: UpdateHoldParams): Promise<UploadHoldResult> {
   const username = await resolveUsername(accessToken)
-  const { links, attentionReasons, searchText, status, ...holdRecord } = hold
 
-  const updatedMetadata = {
-    ...holdRecord,
-    manufacturer: updates.manufacturer,
-    model: updates.model,
-    type: updates.type,
-    size: updates.size,
-    last_update: Math.floor(Date.now() / 1000),
-  }
-
-  const operations: Array<{ operation: 'addOrUpdate'; path: string; content: Blob | File }> = []
-  let commitTitle = `Update hold ${hold.hold_id}`
-
+  // ── File-replacement path ──────────────────────────────────────────────────
+  // Use the SDK for binary files so they go through the LFS pipeline correctly.
   if (updates.replacementFile) {
+    const { links, attentionReasons, searchText, status, ...holdRecord } = hold
+    const updatedMetadata = {
+      ...holdRecord,
+      manufacturer: updates.manufacturer,
+      model: updates.model,
+      type: updates.type,
+      size: updates.size,
+      last_update: Math.floor(Date.now() / 1000),
+    }
+
     const pendingFolderId =
       (typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
@@ -121,70 +120,100 @@ export async function updateHold({
       type: 'application/json',
     })
 
-    operations.push({
-      operation: 'addOrUpdate',
-      path: `${pendingPathPrefix}/metadata.json`,
-      content: metadataBlob,
+    const result = await commit({
+      fetch: makeAuthedFetch(accessToken),
+      branch: 'staging',
+      isPullRequest: true,
+      repo: { type: 'dataset', name: repoId },
+      title: `Propose file replacement for hold ${hold.hold_id}`,
+      description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
+      useWebWorkers: false,
+      useXet: false,
+      operations: [
+        { operation: 'addOrUpdate', path: `${pendingPathPrefix}/metadata.json`, content: metadataBlob },
+        {
+          operation: 'addOrUpdate',
+          path: `${pendingPathPrefix}/${getFileRelativePath(updates.replacementFile)}`,
+          content: updates.replacementFile,
+        },
+      ],
     })
 
-    operations.push({
-      operation: 'addOrUpdate',
-      path: `${pendingPathPrefix}/${getFileRelativePath(updates.replacementFile)}`,
-      content: updates.replacementFile,
-    })
-
-    commitTitle = `Propose file replacement for hold ${hold.hold_id}`
-  } else {
-    // If no files are linked, we edit the votes.json
-    let existingVotes: Record<string, any> = {}
-    try {
-      const response = await fetch(`https://huggingface.co/datasets/${repoId}/raw/main/${hold.hold_id}/votes.json`)
-      if (response.ok) {
-        existingVotes = await response.json()
-      }
-    } catch (e) {
-      // If it doesn't exist or fails to parse, start fresh
+    return {
+      holdId: hold.hold_id,
+      commitUrl: result?.pullRequestUrl,
     }
+  }
 
-    existingVotes[username ?? 'anonymous'] = {
+  // ── Votes path ─────────────────────────────────────────────────────────────
+  // Bypass the @huggingface/hub SDK and call the HF commit API directly.
+  // The SDK's preupload pipeline produces empty PRs (+0 -0) for small JSON
+  // files that already exist on the target branch.
+
+  // Each save is a standalone vote — the indexer squashes them on its own.
+  // Writing only the current user's vote with a millisecond timestamp guarantees
+  // a unique git-blob SHA every time, avoiding empty PRs.
+  const votePayload = {
+    [username ?? 'anonymous']: {
       manufacturer: updates.manufacturer,
       model: updates.model,
       type: updates.type,
       size: updates.size,
-      timestamp: Math.floor(Date.now() / 1000)
-    }
-
-    const votesBlob = new Blob([`${JSON.stringify(existingVotes, null, 2)}\n`], {
-      type: 'application/json',
-    })
-
-    operations.push({
-      operation: 'addOrUpdate',
-      path: `${hold.hold_id}/votes.json`,
-      content: votesBlob,
-    })
-
-    commitTitle = `Vote on metadata for hold ${hold.hold_id}`
+      timestamp: Date.now(),
+    },
   }
 
-  const result = await commit({
-    fetch: makeAuthedFetch(accessToken),
-    branch: 'staging',
-    isPullRequest: true,
-    repo: {
-      type: 'dataset',
-      name: repoId,
-    },
-    title: commitTitle,
-    description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
-    useWebWorkers: false,
-    useXet: false,
-    operations,
-  })
+  const votesContent = `${JSON.stringify(votePayload, null, 2)}\n`
+
+  // Encode content to base64 (btoa is available in all modern browsers).
+  const bytes = new TextEncoder().encode(votesContent)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  const base64Content = btoa(binary)
+
+  const commitTitle = `Vote on metadata for hold ${hold.hold_id}`
+  const ndjsonBody = [
+    JSON.stringify({
+      key: 'header',
+      value: {
+        summary: commitTitle,
+        description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
+      },
+    }),
+    JSON.stringify({
+      key: 'file',
+      value: {
+        content: base64Content,
+        path: `${hold.hold_id}/votes.json`,
+        encoding: 'base64',
+      },
+    }),
+  ].join('\n')
+
+  const commitResponse = await fetch(
+    `https://huggingface.co/api/datasets/${repoId}/commit/staging?create_pr=1`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/x-ndjson',
+      },
+      body: ndjsonBody,
+    }
+  )
+
+  if (!commitResponse.ok) {
+    const errorText = await commitResponse.text().catch(() => String(commitResponse.status))
+    throw new Error(`Failed to save vote (${commitResponse.status}): ${errorText}`)
+  }
+
+  const commitResult = (await commitResponse.json()) as { pullRequestUrl?: string }
 
   return {
     holdId: hold.hold_id,
-    commitUrl: result?.pullRequestUrl,
+    commitUrl: commitResult.pullRequestUrl,
   }
 }
 

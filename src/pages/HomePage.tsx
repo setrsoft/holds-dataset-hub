@@ -185,7 +185,7 @@ export function HomePage() {
             )}
           </div>
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70">
-            <h1 className="text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl">
+            <h1 className="text-center text-6xl font-bold tracking-tight text-white">
               First climbing holds 3D dataset
             </h1>
             <p className="mt-5 max-w-2xl text-center text-xl text-slate-200 sm:text-2xl dark:text-slate-300">
