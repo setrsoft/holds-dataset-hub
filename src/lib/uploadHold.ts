@@ -3,10 +3,28 @@ import { commit } from '@huggingface/hub'
 import { ANONYMOUS_UPLOAD_URL } from './env'
 import type { DerivedHold, NewHoldMetadata, UploadHoldParams, UploadHoldResult } from '../types/registry'
 
-/** Injects Authorization header into every fetch, bypassing SDK token validation for OAuth JWTs. */
+/**
+ * Injects Authorization header into HuggingFace requests, bypassing SDK token
+ * validation for OAuth JWTs. Non-HF URLs (e.g. S3 presigned upload URLs) are
+ * passed through unchanged — adding an Authorization header there would cause
+ * CORS preflight failures.
+ */
 function makeAuthedFetch(accessToken: string): typeof fetch {
   return (input, init = {}) => {
-    const headers = new Headers((init as RequestInit).headers)
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.href
+          : (input as Request).url
+    if (!url.includes('huggingface.co') && !url.includes('.hf.co')) {
+      return fetch(input, init as RequestInit)
+    }
+    const baseHeaders =
+      input instanceof Request
+        ? input.headers
+        : (init as RequestInit).headers
+    const headers = new Headers(baseHeaders)
     headers.set('Authorization', `Bearer ${accessToken}`)
     return fetch(input, { ...(init as RequestInit), headers })
   }
@@ -159,7 +177,8 @@ export async function updateHold({
     },
     title: commitTitle,
     description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch.`,
-    useWebWorkers: true,
+    useWebWorkers: false,
+    useXet: false,
     operations,
   })
 
@@ -222,7 +241,8 @@ export async function uploadHold({
     },
     title: `Add hold ${hold.hold_id}`,
     description: `Contribution via Registry Frontend by ${username ?? 'community user'}. Target: staging branch for daily squash.`,
-    useWebWorkers: true,
+    useWebWorkers: false,
+    useXet: false,
     operations: [
       {
         operation: 'addOrUpdate',
