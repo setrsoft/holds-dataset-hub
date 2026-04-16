@@ -68,6 +68,16 @@ export function HomePage() {
   const [theme, setTheme] = useState<'light' | 'dark'>(getInitialTheme)
   const [filters, setFilters] = useState<HoldFilters>(defaultFilters)
   const [selectedHoldId, setSelectedHoldId] = useState<string | null>(null)
+  const [hfDownloads, setHfDownloads] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('https://huggingface.co/api/datasets/setrsoft/climbing-holds')
+      .then((r) => r.json())
+      .then((json) => {
+        if (typeof json?.downloads === 'number') setHfDownloads(json.downloads)
+      })
+      .catch(() => { /* silently ignore */ })
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -150,7 +160,7 @@ export function HomePage() {
           )}
         </div>
 
-        <section className="relative min-h-[70vh] w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <section className="relative min-h-[50vh] w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div
             className="absolute inset-0 h-full w-full overflow-hidden opacity-60 dark:opacity-50"
             aria-hidden
@@ -175,12 +185,23 @@ export function HomePage() {
             )}
           </div>
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm dark:bg-slate-950/70">
-            <h1 className="text-center text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
+            <h1 className="text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl">
               First climbing holds 3D dataset
             </h1>
-            <p className="mt-4 max-w-xl text-center text-lg text-slate-200 sm:text-xl dark:text-slate-300">
+            <p className="mt-5 max-w-2xl text-center text-xl text-slate-200 sm:text-2xl dark:text-slate-300">
               Help numeric solutions empower the climbing industry
             </p>
+            {hfDownloads !== null && (
+              <a
+                href="https://huggingface.co/datasets/setrsoft/climbing-holds"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-base font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                <HuggingFaceLogo />
+                {hfDownloads.toLocaleString()} downloads on Hugging Face
+              </a>
+            )}
           </div>
         </section>
 
@@ -203,6 +224,29 @@ export function HomePage() {
               Go to Add hold →
             </span>
           </Link>
+          <a
+            href="https://www.setrsoft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col rounded-[2rem] border border-slate-200/80 bg-white/90 p-8 shadow-lg transition hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/90"
+          >
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/20 text-violet-600 dark:bg-violet-500/30 dark:text-violet-400">
+              <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </span>
+            <h2 className="mt-4 text-2xl font-semibold text-slate-950 dark:text-white">
+              Try holds in SetRsoft
+            </h2>
+            <p className="mt-2 text-slate-600 dark:text-slate-300">
+              Play around with the available holds of the dataset in a 3D virtual environment
+            </p>
+            <span className="mt-4 text-sm font-medium text-violet-600 group-hover:underline dark:text-violet-400">
+              Go try SetRsoft →
+            </span>
+          </a>
         </div>
 
         
