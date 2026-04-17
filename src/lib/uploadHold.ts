@@ -100,6 +100,7 @@ export async function updateHold({
   // ── File-replacement path ──────────────────────────────────────────────────
   // Use the SDK for binary files so they go through the LFS pipeline correctly.
   if (updates.replacementFile) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { links, attentionReasons, searchText, status, ...holdRecord } = hold
     const updatedMetadata = {
       ...holdRecord,
@@ -231,6 +232,7 @@ export async function uploadHold({
 
   const pendingPathPrefix = `pending/${pendingFolderId}`
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { uploadFiles: _uploadFiles, ...holdMetadata } = hold
   const metadataBlob = new Blob([`${JSON.stringify(holdMetadata, null, 2)}\n`], {
     type: 'application/json',
